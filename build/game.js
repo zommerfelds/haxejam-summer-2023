@@ -3920,21 +3920,17 @@ var State = $hxEnums["State"] = { __ename__:"State",__constructs__:null
 State.__constructs__ = [State.WaitingForTouch,State.Playing,State.MissedBall,State.Dead];
 State.__empty_constructs__ = [State.WaitingForTouch,State.Playing,State.MissedBall,State.Dead];
 var PlayView = function() {
-	this.resetInteractive = new h2d_Interactive(0,0);
 	this.resetText = new Text("");
 	this.points = 0;
 	this.pointsText = new Text("");
 	this.state = State.WaitingForTouch;
-	this.wallSize = 0.5;
+	this.wallSize = 0.2;
 	this.ballVel = new h2d_col_Point();
 	this.ballSize = 0.5;
 	this.ball = new h2d_Graphics();
-	this.paddleHeight = 0.5;
-	this.paddleWidth = 2;
-	this.paddle = new h2d_Graphics();
 	this.gameArea = new h2d_Graphics();
-	this.playHeight = 16;
-	this.playWidth = 9;
+	this.playHeight = 10;
+	this.playWidth = 16;
 	GameState.call(this);
 };
 $hxClasses["PlayView"] = PlayView;
@@ -3942,7 +3938,6 @@ PlayView.__name__ = "PlayView";
 PlayView.__super__ = GameState;
 PlayView.prototype = $extend(GameState.prototype,{
 	init: function() {
-		var _gthis = this;
 		if(this.height / this.width > this.playHeight / this.playWidth) {
 			var _this = this.gameArea;
 			var v = this.width / this.playWidth;
@@ -3970,12 +3965,9 @@ PlayView.prototype = $extend(GameState.prototype,{
 		var wall = new h2d_Graphics(this.gameArea);
 		wall.beginFill(16777215);
 		wall.drawRect(0,0,this.playWidth,this.wallSize);
-		this.paddle.beginFill(16777215);
-		this.paddle.drawRect(-this.paddleWidth / 2,0,this.paddleWidth,this.paddleHeight);
-		var _this = this.paddle;
-		_this.posChanged = true;
-		_this.y = this.playHeight * 0.8;
-		this.gameArea.addChild(this.paddle);
+		wall.drawRect(0,0,this.wallSize,this.playHeight);
+		wall.drawRect(this.playWidth - this.wallSize,0,this.wallSize,this.playHeight);
+		wall.drawRect(0,this.playHeight - this.wallSize,this.playWidth,this.wallSize);
 		this.ball.beginFill(16777215);
 		this.ball.drawRect(-this.ballSize / 2,-this.ballSize / 2,this.ballSize,this.ballSize);
 		this.gameArea.addChild(this.ball);
@@ -3987,35 +3979,6 @@ PlayView.prototype = $extend(GameState.prototype,{
 		_this.y = this.width * 0.02 + this.gameArea.y + this.wallSize * this.gameArea.scaleY;
 		this.pointsText.set_textAlign(h2d_Align.Center);
 		this.addChild(this.pointsText);
-		this.resetText.set_text("reset");
-		var _this = this.resetText;
-		var v = this.width;
-		var _this1 = this.resetText.getBounds();
-		_this.posChanged = true;
-		_this.x = v - (_this1.xMax - _this1.xMin) - this.width * 0.05;
-		var _this = this.resetText;
-		_this.posChanged = true;
-		_this.y = this.width * 0.02 + this.gameArea.y + this.wallSize * this.gameArea.scaleY;
-		this.addChild(this.resetText);
-		var _this = this.resetText.getBounds();
-		this.resetInteractive.width = _this.xMax - _this.xMin;
-		var _this = this.resetText.getBounds();
-		this.resetInteractive.height = _this.yMax - _this.yMin;
-		this.resetInteractive.onClick = function(e) {
-			_gthis.setupGame();
-		};
-		this.resetText.addChild(this.resetInteractive);
-		var backText = new Text("&lt;-",this);
-		backText.posChanged = true;
-		backText.x = this.width * 0.05;
-		backText.posChanged = true;
-		backText.y = this.width * 0.02 + this.gameArea.y + this.wallSize * this.gameArea.scaleY;
-		var _this = backText.getBounds();
-		var backInteractive = _this.xMax - _this.xMin;
-		var _this = backText.getBounds();
-		new h2d_Interactive(backInteractive,_this.yMax - _this.yMin,backText).onClick = function(e) {
-			App.instance.switchState(new MenuView());
-		};
 		this.setupGame();
 		this.addEventListener($bind(this,this.onEvent));
 		var manager = hxd_snd_Manager.get();
@@ -4026,15 +3989,12 @@ PlayView.prototype = $extend(GameState.prototype,{
 	,setupGame: function() {
 		this.resetText.set_visible(false);
 		this.points = 0;
-		var _this = this.paddle;
-		_this.posChanged = true;
-		_this.x = this.playWidth / 2;
 		var _this = this.ball;
 		_this.posChanged = true;
-		_this.x = this.paddle.x;
+		_this.x = 8;
 		var _this = this.ball;
 		_this.posChanged = true;
-		_this.y = this.paddle.y - this.ballSize / 2;
+		_this.y = 8;
 		this.state = State.WaitingForTouch;
 	}
 	,onEvent: function(event) {
@@ -4045,12 +4005,9 @@ PlayView.prototype = $extend(GameState.prototype,{
 				hxd_Res.get_loader().loadCache("start.wav",hxd_res_Sound).play();
 			}
 		}
-		var _this = this.paddle;
-		_this.posChanged = true;
-		_this.x = (event.relX - this.gameArea.x) / this.gameArea.scaleX;
 	}
 	,setRandomBallVel: function() {
-		this.ballVel = new h2d_col_Point(0,-(10 + this.points));
+		this.ballVel = new h2d_col_Point(0,-(3 + this.points));
 		var _this = this.ballVel;
 		var angle = (Math.random() - 0.5) * Math.PI * 0.8;
 		var c = Math.cos(angle);
@@ -4070,45 +4027,40 @@ PlayView.prototype = $extend(GameState.prototype,{
 		var fh = this.ball;
 		fh.posChanged = true;
 		fh.y += this.ballVel.y * dt;
-		if(this.ball.x - this.ballSize * 0.5 < 0) {
-			var _this = this.ball;
-			_this.posChanged = true;
-			_this.x = this.ballSize * 0.5;
-			this.ballVel.x *= -1;
-			hxd_Res.get_loader().loadCache("blip.wav",hxd_res_Sound).play();
-		}
-		if(this.ball.x + this.ballSize * 0.5 > this.playWidth) {
-			var _this = this.ball;
-			_this.posChanged = true;
-			_this.x = this.playWidth - this.ballSize * 0.5;
-			this.ballVel.x *= -1;
-			hxd_Res.get_loader().loadCache("blip.wav",hxd_res_Sound).play();
-		}
 		if(this.ball.y - this.ballSize * 0.5 < this.wallSize) {
 			var _this = this.ball;
 			_this.posChanged = true;
 			_this.y = this.wallSize + this.ballSize * 0.5;
 			this.ballVel.y *= -1;
 			this.points += 1;
-			if(App.loadHighScore() < this.points) {
-				App.writeHighScore(this.points);
-			}
 			hxd_Res.get_loader().loadCache("blip.wav",hxd_res_Sound).play();
 		}
-		if(this.ball.y + this.ballSize * 0.5 > this.paddle.y) {
-			if(this.state == State.Playing && this.ball.x + this.ballSize > this.paddle.x - this.paddleWidth / 2 && this.ball.x - this.ballSize < this.paddle.x + this.paddleWidth / 2) {
-				var _this = this.ball;
-				_this.posChanged = true;
-				_this.y = this.paddle.y - this.ballSize * 0.5;
-				this.setRandomBallVel();
-				hxd_Res.get_loader().loadCache("blip.wav",hxd_res_Sound).play();
-			} else {
-				this.state = State.MissedBall;
-			}
+		if(this.ball.x - this.ballSize * 0.5 < this.wallSize) {
+			var _this = this.ball;
+			_this.posChanged = true;
+			_this.x = this.wallSize + this.ballSize * 0.5;
+			this.ballVel.x *= -1;
+			this.points += 1;
+			hxd_Res.get_loader().loadCache("blip.wav",hxd_res_Sound).play();
 		}
-		if(this.ball.y - this.ballSize * 0.5 > this.playHeight) {
-			this.state = State.Dead;
-			this.resetText.set_visible(true);
+		if(this.ball.x + this.ballSize * 0.5 > this.playWidth - this.wallSize) {
+			var _this = this.ball;
+			_this.posChanged = true;
+			_this.x = this.playWidth - this.wallSize - this.ballSize * 0.5;
+			this.ballVel.x *= -1;
+			this.points += 1;
+			hxd_Res.get_loader().loadCache("blip.wav",hxd_res_Sound).play();
+		}
+		if(this.ball.y + this.ballSize * 0.5 > this.playHeight - this.wallSize) {
+			var _this = this.ball;
+			_this.posChanged = true;
+			_this.y = this.playHeight - this.wallSize - this.ballSize * 0.5;
+			this.ballVel.y *= -1;
+			this.points += 1;
+			hxd_Res.get_loader().loadCache("blip.wav",hxd_res_Sound).play();
+		}
+		if(App.loadHighScore() < this.points) {
+			App.writeHighScore(this.points);
 		}
 	}
 	,__class__: PlayView
