@@ -138,16 +138,6 @@ var HerbalTeaApp = function() {
 };
 $hxClasses["HerbalTeaApp"] = HerbalTeaApp;
 HerbalTeaApp.__name__ = "HerbalTeaApp";
-HerbalTeaApp.toggleFullScreen = function() {
-	var $window = hxd_Window.getInstance();
-	switch($window.get_displayMode()._hx_index) {
-	case 1:case 2:case 3:
-		$window.set_displayMode(hxd_DisplayMode.Windowed);
-		break;
-	default:
-		$window.set_displayMode(hxd_DisplayMode.FullscreenResize);
-	}
-};
 HerbalTeaApp.__super__ = hxd_App;
 HerbalTeaApp.prototype = $extend(hxd_App.prototype,{
 	onload: function() {
@@ -397,7 +387,7 @@ App.writeHighScore = function(highscore) {
 App.__super__ = HerbalTeaApp;
 App.prototype = $extend(HerbalTeaApp.prototype,{
 	onload: function() {
-		this.switchState(new MenuView());
+		this.switchState(new PlayView());
 	}
 	,__class__: App
 });
@@ -1394,20 +1384,7 @@ h2d_Object.prototype = {
 	,getChildAt: function(n) {
 		return this.children[n];
 	}
-	,getChildIndex: function(o) {
-		var _g = 0;
-		var _g1 = this.children.length;
-		while(_g < _g1) {
-			var i = _g++;
-			if(this.children[i] == o) {
-				return i;
-			}
-		}
-		return -1;
-	}
 	,contentChanged: function(s) {
-	}
-	,constraintSize: function(maxWidth,maxHeight) {
 	}
 	,__class__: h2d_Object
 	,__properties__: {set_visible:"set_visible"}
@@ -2086,12 +2063,6 @@ Gui.scale = function(multiplier) {
 	}
 	return normWidth / 600 * multiplier;
 };
-Gui.scaleAsInt = function(multiplier) {
-	if(multiplier == null) {
-		multiplier = 1.0;
-	}
-	return Gui.scale(multiplier) | 0;
-};
 var h2d_Drawable = function(parent) {
 	h2d_Object.call(this,parent);
 	this.color = new h3d_Vector(1,1,1,1);
@@ -2142,7 +2113,6 @@ h2d_Drawable.prototype = $extend(h2d_Object.prototype,{
 });
 var h2d_Text = function(font,parent) {
 	this.realMaxWidth = -1;
-	this.constraintWidth = -1;
 	this.lineBreak = true;
 	this.lineSpacing = 0;
 	this.letterSpacing = 0;
@@ -2217,10 +2187,6 @@ h2d_Text.prototype = $extend(h2d_Drawable.prototype,{
 		this.lineSpacing = s;
 		this.rebuild();
 		return s;
-	}
-	,constraintSize: function(width,height) {
-		this.constraintWidth = width;
-		this.updateConstraint();
 	}
 	,onAdd: function() {
 		h2d_Drawable.prototype.onAdd.call(this);
@@ -2533,29 +2499,6 @@ h2d_Text.prototype = $extend(h2d_Drawable.prototype,{
 			this.needsRebuild = false;
 		}
 	}
-	,set_maxWidth: function(w) {
-		if(this.maxWidth == w) {
-			return w;
-		}
-		this.maxWidth = w;
-		this.updateConstraint();
-		return w;
-	}
-	,updateConstraint: function() {
-		var old = this.realMaxWidth;
-		if(this.maxWidth == null) {
-			this.realMaxWidth = this.constraintWidth;
-		} else if(this.constraintWidth < 0) {
-			this.realMaxWidth = this.maxWidth;
-		} else {
-			var a = this.maxWidth;
-			var b = this.constraintWidth;
-			this.realMaxWidth = a > b ? b : a;
-		}
-		if(this.realMaxWidth != old) {
-			this.rebuild();
-		}
-	}
 	,set_textColor: function(c) {
 		if(this.textColor == c) {
 			return c;
@@ -2599,7 +2542,7 @@ h2d_Text.prototype = $extend(h2d_Drawable.prototype,{
 		this.addBounds(relativeTo,out,x,y,w,h);
 	}
 	,__class__: h2d_Text
-	,__properties__: $extend(h2d_Drawable.prototype.__properties__,{set_lineSpacing:"set_lineSpacing",set_textAlign:"set_textAlign",set_maxWidth:"set_maxWidth",set_textColor:"set_textColor",set_text:"set_text",set_font:"set_font"})
+	,__properties__: $extend(h2d_Drawable.prototype.__properties__,{set_lineSpacing:"set_lineSpacing",set_textAlign:"set_textAlign",set_textColor:"set_textColor",set_text:"set_text",set_font:"set_font"})
 });
 var h2d_HtmlText = function(font,parent) {
 	this.elements = [];
@@ -3654,165 +3597,6 @@ Text.prototype = $extend(h2d_HtmlText.prototype,{
 	}
 	,__class__: Text
 });
-var Colors = function() { };
-$hxClasses["Colors"] = Colors;
-Colors.__name__ = "Colors";
-var Button = function(parent,onClickFn,backgroundColor,disableOnClick) {
-	if(disableOnClick == null) {
-		disableOnClick = false;
-	}
-	this.buttonShape = new h2d_Graphics();
-	this.buttonShadow = new h2d_Graphics();
-	this.enabled = true;
-	var _gthis = this;
-	h2d_Object.call(this,parent);
-	if(backgroundColor == null) {
-		backgroundColor = Colors.LIGHT_GREY;
-	}
-	var horizontalPadding = 20 * Gui.scale();
-	var verticalPadding = 20 * Gui.scale();
-	this.shadowOffsetX = 5 * Gui.scale();
-	this.shadowOffsetY = 5 * Gui.scale();
-	var buttonOffsetXPressed = this.shadowOffsetX * 0.5;
-	var buttonOffsetYPressed = this.shadowOffsetY * 0.5;
-	this.addChild(this.buttonShadow);
-	this.addChild(this.buttonShape);
-	var pushed = false;
-	var pushTime = null;
-	this.content = new h2d_Flow(this);
-	this.content.set_enableInteractive(true);
-	var _this = this.content;
-	var v = horizontalPadding | 0;
-	_this.set_paddingLeft(v);
-	_this.set_paddingRight(v);
-	var _this = this.content;
-	var v = verticalPadding | 0;
-	_this.set_paddingTop(v);
-	_this.set_paddingBottom(v);
-	this.content.set_verticalAlign(h2d_FlowAlign.Middle);
-	this.content.interactive.onClick = function(e) {
-		e.propagate = false;
-		if(!_gthis.enabled) {
-			return;
-		}
-		if(disableOnClick) {
-			_gthis.set_enabled(false);
-		}
-		onClickFn();
-	};
-	this.content.interactive.onPush = function(e) {
-		e.propagate = false;
-		if(!_gthis.enabled || pushed) {
-			return;
-		}
-		pushed = true;
-		pushTime = HxOverrides.now() / 1000;
-		var fh = _gthis.buttonShape;
-		var v = fh.x + buttonOffsetXPressed;
-		fh.posChanged = true;
-		fh.x = v;
-		var fh = _gthis.buttonShape;
-		var v = fh.y + buttonOffsetYPressed;
-		fh.posChanged = true;
-		fh.y = v;
-		var fh = _gthis.content;
-		var v = fh.x + buttonOffsetXPressed;
-		fh.posChanged = true;
-		fh.x = v;
-		var fh = _gthis.content;
-		var v = fh.y + buttonOffsetXPressed;
-		fh.posChanged = true;
-		fh.y = v;
-	};
-	var releaseButton = function(e) {
-		e.propagate = false;
-		if(!_gthis.enabled || !pushed) {
-			return;
-		}
-		pushed = false;
-		pushTime = null;
-		var fh = _gthis.buttonShape;
-		var v = fh.x - buttonOffsetXPressed;
-		fh.posChanged = true;
-		fh.x = v;
-		var fh = _gthis.buttonShape;
-		var v = fh.y - buttonOffsetYPressed;
-		fh.posChanged = true;
-		fh.y = v;
-		var fh = _gthis.content;
-		var v = fh.x - buttonOffsetXPressed;
-		fh.posChanged = true;
-		fh.x = v;
-		var fh = _gthis.content;
-		var v = fh.y - buttonOffsetXPressed;
-		fh.posChanged = true;
-		fh.y = v;
-	};
-	this.content.interactive.onRelease = releaseButton;
-	this.content.interactive.onOut = releaseButton;
-	this.set_backgroundColor(backgroundColor);
-};
-$hxClasses["Button"] = Button;
-Button.__name__ = "Button";
-Button.__super__ = h2d_Object;
-Button.prototype = $extend(h2d_Object.prototype,{
-	set_backgroundColor: function(color) {
-		this.backgroundColor = color;
-		this.redrawButton();
-		return this.backgroundColor;
-	}
-	,redrawButton: function() {
-		var w = this.content.get_outerWidth() == 0 ? Gui.scale() * 100 | 0 : this.content.get_outerWidth();
-		var h = this.content.get_outerHeight() == 0 ? Gui.scale() * 100 | 0 : this.content.get_outerHeight();
-		this.buttonShadow.clear();
-		this.buttonShadow.beginFill(0,0.5);
-		this.buttonShadow.drawRoundedRect(0,0,w,h,10 * Gui.scale());
-		var _this = this.buttonShadow;
-		_this.posChanged = true;
-		_this.x = this.shadowOffsetX;
-		var _this = this.buttonShadow;
-		_this.posChanged = true;
-		_this.y = this.shadowOffsetY;
-		this.buttonShape.clear();
-		this.buttonShape.beginFill(this.backgroundColor);
-		this.buttonShape.drawRoundedRect(0,0,w,h,10 * Gui.scale());
-	}
-	,set_enabled: function(enabled) {
-		return this.enabled = enabled;
-	}
-	,__class__: Button
-	,__properties__: $extend(h2d_Object.prototype.__properties__,{set_backgroundColor:"set_backgroundColor",set_enabled:"set_enabled"})
-});
-var TextButton = function(parent,labelText,onClickFn,backgroundColor,disableOnClick,textSize,maxWidth) {
-	if(textSize == null) {
-		textSize = 1.0;
-	}
-	if(disableOnClick == null) {
-		disableOnClick = false;
-	}
-	if(backgroundColor == null) {
-		backgroundColor = 16711680;
-	}
-	Button.call(this,parent,onClickFn,backgroundColor,disableOnClick);
-	this.text = new Text(labelText,this.content,textSize);
-	this.text.set_textAlign(h2d_Align.MultilineCenter);
-	if(maxWidth != null) {
-		this.text.set_maxWidth(maxWidth);
-	}
-	var fh = this.content;
-	fh.set_paddingTop(fh.paddingTop + (this.text.lineSpacing | 0));
-	this.redrawButton();
-};
-$hxClasses["TextButton"] = TextButton;
-TextButton.__name__ = "TextButton";
-TextButton.__super__ = Button;
-TextButton.prototype = $extend(Button.prototype,{
-	set_enabled: function(enabled) {
-		this.text.set_textColor(enabled ? TextButton.BUTTON_TEXT_COLOR_ENABLED : TextButton.BUTTON_TEXT_COLOR_DISABLED);
-		return Button.prototype.set_enabled.call(this,enabled);
-	}
-	,__class__: TextButton
-});
 var HxOverrides = function() { };
 $hxClasses["HxOverrides"] = HxOverrides;
 HxOverrides.__name__ = "HxOverrides";
@@ -3878,39 +3662,6 @@ Lambda.array = function(it) {
 	return a;
 };
 Math.__name__ = "Math";
-var MenuView = function() {
-	GameState.call(this);
-};
-$hxClasses["MenuView"] = MenuView;
-MenuView.__name__ = "MenuView";
-MenuView.__super__ = GameState;
-MenuView.prototype = $extend(GameState.prototype,{
-	init: function() {
-		var centeringFlow = new h2d_Flow(this);
-		centeringFlow.set_backgroundTile(h2d_Tile.fromColor(532534));
-		centeringFlow.set_fillWidth(true);
-		centeringFlow.set_fillHeight(true);
-		centeringFlow.set_horizontalAlign(h2d_FlowAlign.Middle);
-		centeringFlow.set_verticalAlign(h2d_FlowAlign.Middle);
-		centeringFlow.set_maxWidth(this.width);
-		centeringFlow.set_layout(h2d_FlowLayout.Vertical);
-		centeringFlow.set_verticalSpacing(Gui.scaleAsInt(50));
-		new Text("Wellcome to...",centeringFlow,0.8);
-		new Text("Yet Another Game!",centeringFlow);
-		centeringFlow.addSpacing(Gui.scaleAsInt(100));
-		new TextButton(centeringFlow,"Toggle fullscreen",function() {
-			HerbalTeaApp.toggleFullScreen();
-			centeringFlow.reflow();
-		},Colors.BLUE,null,0.8);
-		new TextButton(centeringFlow,"Start game",function() {
-			App.instance.switchState(new PlayView());
-		},Colors.BLUE,null,0.8);
-		new Text("Highscore: " + App.loadHighScore(),centeringFlow,0.8);
-		centeringFlow.addSpacing(Gui.scaleAsInt(100));
-		new Text("version: " + hxd_Res.get_loader().loadCache("version.txt",hxd_res_Resource).entry.getText(),centeringFlow,0.5);
-	}
-	,__class__: MenuView
-});
 var State = $hxEnums["State"] = { __ename__:"State",__constructs__:null
 	,WaitingForTouch: {_hx_name:"WaitingForTouch",_hx_index:0,__enum__:"State",toString:$estr}
 	,Playing: {_hx_name:"Playing",_hx_index:1,__enum__:"State",toString:$estr}
@@ -3920,6 +3671,8 @@ var State = $hxEnums["State"] = { __ename__:"State",__constructs__:null
 State.__constructs__ = [State.WaitingForTouch,State.Playing,State.MissedBall,State.Dead];
 State.__empty_constructs__ = [State.WaitingForTouch,State.Playing,State.MissedBall,State.Dead];
 var PlayView = function() {
+	this.b2World = new box2D_dynamics_B2World(new box2D_common_math_B2Vec2(0,10.0),true);
+	this.wallDefitition = [new h2d_col_Point(1,1),new h2d_col_Point(12,3),new h2d_col_Point(15,9),new h2d_col_Point(6,9),new h2d_col_Point(5,7),new h2d_col_Point(2,9)];
 	this.resetText = new Text("");
 	this.points = 0;
 	this.pointsText = new Text("");
@@ -3935,6 +3688,9 @@ var PlayView = function() {
 };
 $hxClasses["PlayView"] = PlayView;
 PlayView.__name__ = "PlayView";
+PlayView.toB2Vec2 = function(pt) {
+	return new box2D_common_math_B2Vec2(pt.x,pt.y);
+};
 PlayView.__super__ = GameState;
 PlayView.prototype = $extend(GameState.prototype,{
 	init: function() {
@@ -3962,12 +3718,7 @@ PlayView.prototype = $extend(GameState.prototype,{
 		this.gameArea.beginFill(3342336);
 		this.gameArea.drawRect(0,0,this.playWidth,this.playHeight);
 		this.addChild(this.gameArea);
-		var wall = new h2d_Graphics(this.gameArea);
-		wall.beginFill(16777215);
-		wall.drawRect(0,0,this.playWidth,this.wallSize);
-		wall.drawRect(0,0,this.wallSize,this.playHeight);
-		wall.drawRect(this.playWidth - this.wallSize,0,this.wallSize,this.playHeight);
-		wall.drawRect(0,this.playHeight - this.wallSize,this.playWidth,this.wallSize);
+		this.initWalls();
 		this.ball.beginFill(16777215);
 		this.ball.drawRect(-this.ballSize / 2,-this.ballSize / 2,this.ballSize,this.ballSize);
 		this.gameArea.addChild(this.ball);
@@ -3985,6 +3736,31 @@ PlayView.prototype = $extend(GameState.prototype,{
 		manager.masterVolume = 0.5;
 		manager.masterChannelGroup.addEffect(new hxd_snd_effect_Reverb(hxd_snd_effect_ReverbPreset.DRUGGED));
 		manager.masterChannelGroup.addEffect(new hxd_snd_effect_Pitch(0.5));
+	}
+	,initWalls: function() {
+		var walls = new h2d_Graphics(this.gameArea);
+		walls.lineStyle(this.wallSize,16777215);
+		this.b2World.createBody(new box2D_dynamics_B2BodyDef());
+		var _g = 0;
+		var _g1 = this.wallDefitition;
+		while(_g < _g1.length) {
+			var def = _g1[_g];
+			++_g;
+			var x = def.x;
+			var y = def.y;
+			walls.addVertex(x,y,walls.curR,walls.curG,walls.curB,walls.curA,x * walls.ma + y * walls.mc + walls.mx,x * walls.mb + y * walls.md + walls.my);
+		}
+		var x = this.wallDefitition[0].x;
+		var y = this.wallDefitition[0].y;
+		walls.addVertex(x,y,walls.curR,walls.curG,walls.curB,walls.curA,x * walls.ma + y * walls.mc + walls.mx,x * walls.mb + y * walls.md + walls.my);
+		var _g = 0;
+		var _g1 = this.wallDefitition.length - 1;
+		while(_g < _g1) {
+			var i = _g++;
+			var fixture = new box2D_dynamics_B2FixtureDef();
+			fixture.density = 1;
+			fixture.shape = new box2D_collision_shapes_B2EdgeShape(PlayView.toB2Vec2(this.wallDefitition[i]),PlayView.toB2Vec2(this.wallDefitition[i + 1]));
+		}
 	}
 	,setupGame: function() {
 		this.resetText.set_visible(false);
@@ -4017,6 +3793,8 @@ PlayView.prototype = $extend(GameState.prototype,{
 		_this.y = y2;
 	}
 	,update: function(dt) {
+		this.b2World.step(dt,PlayView.BOX2D_VELOCITY_ITERATIONS,PlayView.BOX2D_POSITION_ITERATIONS);
+		this.b2World.clearForces();
 		this.pointsText.set_text("" + this.points);
 		if(this.state == State.WaitingForTouch || this.state == State.Dead) {
 			return;
@@ -4634,6 +4412,4064 @@ Xml.prototype = {
 		return haxe_xml_Printer.print(this);
 	}
 	,__class__: Xml
+};
+var box2D_collision_B2AABB = function() {
+	this.lowerBound = new box2D_common_math_B2Vec2();
+	this.upperBound = new box2D_common_math_B2Vec2();
+};
+$hxClasses["box2D.collision.B2AABB"] = box2D_collision_B2AABB;
+box2D_collision_B2AABB.__name__ = "box2D.collision.B2AABB";
+box2D_collision_B2AABB.prototype = {
+	getCenter: function() {
+		return new box2D_common_math_B2Vec2((this.lowerBound.x + this.upperBound.x) / 2,(this.lowerBound.y + this.upperBound.y) / 2);
+	}
+	,contains: function(aabb) {
+		var result = true;
+		result = this.lowerBound.x <= aabb.lowerBound.x;
+		result = result && this.lowerBound.y <= aabb.lowerBound.y;
+		result = result && aabb.upperBound.x <= this.upperBound.x;
+		result = result && aabb.upperBound.y <= this.upperBound.y;
+		return result;
+	}
+	,testOverlap: function(other) {
+		if(other.lowerBound.x - this.upperBound.x > 0.0 || other.lowerBound.y - this.upperBound.y > 0.0) {
+			return false;
+		}
+		if(this.lowerBound.x - other.upperBound.x > 0.0 || this.lowerBound.y - other.upperBound.y > 0.0) {
+			return false;
+		}
+		return true;
+	}
+	,combine: function(aabb1,aabb2) {
+		this.lowerBound.x = Math.min(aabb1.lowerBound.x,aabb2.lowerBound.x);
+		this.lowerBound.y = Math.min(aabb1.lowerBound.y,aabb2.lowerBound.y);
+		this.upperBound.x = Math.max(aabb1.upperBound.x,aabb2.upperBound.x);
+		this.upperBound.y = Math.max(aabb1.upperBound.y,aabb2.upperBound.y);
+	}
+	,__class__: box2D_collision_B2AABB
+};
+var box2D_common_math_B2Vec2 = function(x_,y_) {
+	if(y_ == null) {
+		y_ = 0;
+	}
+	if(x_ == null) {
+		x_ = 0;
+	}
+	this.x = x_;
+	this.y = y_;
+};
+$hxClasses["box2D.common.math.B2Vec2"] = box2D_common_math_B2Vec2;
+box2D_common_math_B2Vec2.__name__ = "box2D.common.math.B2Vec2";
+box2D_common_math_B2Vec2.prototype = {
+	setZero: function() {
+		this.x = 0.0;
+		this.y = 0.0;
+	}
+	,set: function(x_,y_) {
+		if(y_ == null) {
+			y_ = 0;
+		}
+		if(x_ == null) {
+			x_ = 0;
+		}
+		this.x = x_;
+		this.y = y_;
+	}
+	,setV: function(v) {
+		this.x = v.x;
+		this.y = v.y;
+	}
+	,getNegative: function() {
+		return new box2D_common_math_B2Vec2(-this.x,-this.y);
+	}
+	,negativeSelf: function() {
+		this.x = -this.x;
+		this.y = -this.y;
+	}
+	,multiply: function(a) {
+		this.x *= a;
+		this.y *= a;
+	}
+	,length: function() {
+		return Math.sqrt(this.x * this.x + this.y * this.y);
+	}
+	,lengthSquared: function() {
+		return this.x * this.x + this.y * this.y;
+	}
+	,normalize: function() {
+		var length = Math.sqrt(this.x * this.x + this.y * this.y);
+		if(length < Number.MIN_VALUE) {
+			return 0.0;
+		}
+		var invLength = 1.0 / length;
+		this.x *= invLength;
+		this.y *= invLength;
+		return length;
+	}
+	,__class__: box2D_common_math_B2Vec2
+};
+var box2D_collision_ClipVertex = function() {
+	this.v = new box2D_common_math_B2Vec2();
+	this.id = new box2D_collision_B2ContactID();
+};
+$hxClasses["box2D.collision.ClipVertex"] = box2D_collision_ClipVertex;
+box2D_collision_ClipVertex.__name__ = "box2D.collision.ClipVertex";
+box2D_collision_ClipVertex.prototype = {
+	set: function(other) {
+		this.v.setV(other.v);
+		this.id.set(other.id);
+	}
+	,__class__: box2D_collision_ClipVertex
+};
+var box2D_collision_B2ContactID = function() {
+	this._key = 0;
+	this.features = new box2D_collision_Features();
+	this.features._m_id = this;
+};
+$hxClasses["box2D.collision.B2ContactID"] = box2D_collision_B2ContactID;
+box2D_collision_B2ContactID.__name__ = "box2D.collision.B2ContactID";
+box2D_collision_B2ContactID.prototype = {
+	set: function(id) {
+		this.set_key(id._key);
+	}
+	,get_key: function() {
+		return this._key;
+	}
+	,set_key: function(value) {
+		this._key = value;
+		this.features._referenceEdge = this._key & 255;
+		this.features._incidentEdge = (this._key & 65280) >> 8 & 255;
+		this.features._incidentVertex = (this._key & 16711680) >> 16 & 255;
+		this.features._flip = (this._key & -16777216) >> 24 & 255;
+		return this._key;
+	}
+	,__class__: box2D_collision_B2ContactID
+	,__properties__: {set_key:"set_key",get_key:"get_key"}
+};
+var box2D_collision_Features = function() {
+	this._flip = 0;
+	this._incidentVertex = 0;
+	this._incidentEdge = 0;
+	this._referenceEdge = 0;
+};
+$hxClasses["box2D.collision.Features"] = box2D_collision_Features;
+box2D_collision_Features.__name__ = "box2D.collision.Features";
+box2D_collision_Features.prototype = {
+	set_referenceEdge: function(value) {
+		this._referenceEdge = value;
+		this._m_id._key = this._m_id._key & -256 | this._referenceEdge & 255;
+		return value;
+	}
+	,set_incidentEdge: function(value) {
+		this._incidentEdge = value;
+		this._m_id._key = this._m_id._key & -65281 | this._incidentEdge << 8 & 65280;
+		return value;
+	}
+	,set_incidentVertex: function(value) {
+		this._incidentVertex = value;
+		this._m_id._key = this._m_id._key & -16711681 | this._incidentVertex << 16 & 16711680;
+		return value;
+	}
+	,set_flip: function(value) {
+		this._flip = value;
+		this._m_id._key = this._m_id._key & 16777215 | this._flip << 24 & -16777216;
+		return value;
+	}
+	,__class__: box2D_collision_Features
+	,__properties__: {set_flip:"set_flip",set_incidentVertex:"set_incidentVertex",set_incidentEdge:"set_incidentEdge",set_referenceEdge:"set_referenceEdge"}
+};
+var box2D_collision_B2Collision = function() { };
+$hxClasses["box2D.collision.B2Collision"] = box2D_collision_B2Collision;
+box2D_collision_B2Collision.__name__ = "box2D.collision.B2Collision";
+box2D_collision_B2Collision.clipSegmentToLine = function(vOut,vIn,normal,offset) {
+	var numOut = 0;
+	var cv = vIn[0];
+	var vIn0 = cv.v;
+	cv = vIn[1];
+	var vIn1 = cv.v;
+	var distance0 = normal.x * vIn0.x + normal.y * vIn0.y - offset;
+	var distance1 = normal.x * vIn1.x + normal.y * vIn1.y - offset;
+	if(distance0 <= 0.0) {
+		numOut = 1;
+		vOut[0].set(vIn[0]);
+	}
+	if(distance1 <= 0.0) {
+		vOut[numOut++].set(vIn[1]);
+	}
+	if(distance0 * distance1 < 0.0) {
+		var interp = distance0 / (distance0 - distance1);
+		cv = vOut[numOut];
+		var tVec = cv.v;
+		tVec.x = vIn0.x + interp * (vIn1.x - vIn0.x);
+		tVec.y = vIn0.y + interp * (vIn1.y - vIn0.y);
+		cv = vOut[numOut];
+		var cv2;
+		if(distance0 > 0.0) {
+			cv2 = vIn[0];
+			cv.id = cv2.id;
+		} else {
+			cv2 = vIn[1];
+			cv.id = cv2.id;
+		}
+		++numOut;
+	}
+	return numOut;
+};
+box2D_collision_B2Collision.edgeSeparation = function(poly1,xf1,edge1,poly2,xf2) {
+	var vertices1 = poly1.m_vertices;
+	var count2 = poly2.m_vertexCount;
+	var vertices2 = poly2.m_vertices;
+	var tMat = xf1.R;
+	var tVec = poly1.m_normals[edge1];
+	var normal1WorldX = tMat.col1.x * tVec.x + tMat.col2.x * tVec.y;
+	var normal1WorldY = tMat.col1.y * tVec.x + tMat.col2.y * tVec.y;
+	tMat = xf2.R;
+	var normal1X = tMat.col1.x * normal1WorldX + tMat.col1.y * normal1WorldY;
+	var normal1Y = tMat.col2.x * normal1WorldX + tMat.col2.y * normal1WorldY;
+	var index = 0;
+	var minDot = Number.MAX_VALUE;
+	var _g = 0;
+	while(_g < count2) {
+		var i = _g++;
+		tVec = vertices2[i];
+		var dot = tVec.x * normal1X + tVec.y * normal1Y;
+		if(dot < minDot) {
+			minDot = dot;
+			index = i;
+		}
+	}
+	tVec = vertices1[edge1];
+	tMat = xf1.R;
+	var v1X = xf1.position.x + (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y);
+	var v1Y = xf1.position.y + (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y);
+	tVec = vertices2[index];
+	tMat = xf2.R;
+	var v2X = xf2.position.x + (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y);
+	var v2Y = xf2.position.y + (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y);
+	v2X -= v1X;
+	v2Y -= v1Y;
+	return v2X * normal1WorldX + v2Y * normal1WorldY;
+};
+box2D_collision_B2Collision.findMaxSeparation = function(edgeIndex,poly1,xf1,poly2,xf2) {
+	var count1 = poly1.m_vertexCount;
+	var normals1 = poly1.m_normals;
+	var tMat = xf2.R;
+	var tVec = poly2.m_centroid;
+	var dX = xf2.position.x + (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y);
+	var dY = xf2.position.y + (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y);
+	tMat = xf1.R;
+	tVec = poly1.m_centroid;
+	dX -= xf1.position.x + (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y);
+	dY -= xf1.position.y + (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y);
+	var dLocal1X = dX * xf1.R.col1.x + dY * xf1.R.col1.y;
+	var dLocal1Y = dX * xf1.R.col2.x + dY * xf1.R.col2.y;
+	var edge = 0;
+	var maxDot = -Number.MAX_VALUE;
+	var _g = 0;
+	while(_g < count1) {
+		var i = _g++;
+		tVec = normals1[i];
+		var dot = tVec.x * dLocal1X + tVec.y * dLocal1Y;
+		if(dot > maxDot) {
+			maxDot = dot;
+			edge = i;
+		}
+	}
+	var s = box2D_collision_B2Collision.edgeSeparation(poly1,xf1,edge,poly2,xf2);
+	var prevEdge = edge - 1 >= 0 ? edge - 1 : count1 - 1;
+	var sPrev = box2D_collision_B2Collision.edgeSeparation(poly1,xf1,prevEdge,poly2,xf2);
+	var nextEdge = edge + 1 < count1 ? edge + 1 : 0;
+	var sNext = box2D_collision_B2Collision.edgeSeparation(poly1,xf1,nextEdge,poly2,xf2);
+	var bestEdge;
+	var bestSeparation;
+	var increment;
+	if(sPrev > s && sPrev > sNext) {
+		increment = -1;
+		bestEdge = prevEdge;
+		bestSeparation = sPrev;
+	} else if(sNext > s) {
+		increment = 1;
+		bestEdge = nextEdge;
+		bestSeparation = sNext;
+	} else {
+		edgeIndex[0] = edge;
+		return s;
+	}
+	while(true) {
+		if(increment == -1) {
+			edge = bestEdge - 1 >= 0 ? bestEdge - 1 : count1 - 1;
+		} else {
+			edge = bestEdge + 1 < count1 ? bestEdge + 1 : 0;
+		}
+		s = box2D_collision_B2Collision.edgeSeparation(poly1,xf1,edge,poly2,xf2);
+		if(s > bestSeparation) {
+			bestEdge = edge;
+			bestSeparation = s;
+		} else {
+			break;
+		}
+	}
+	edgeIndex[0] = bestEdge;
+	return bestSeparation;
+};
+box2D_collision_B2Collision.findIncidentEdge = function(c,poly1,xf1,edge1,poly2,xf2) {
+	var count2 = poly2.m_vertexCount;
+	var vertices2 = poly2.m_vertices;
+	var normals2 = poly2.m_normals;
+	var tMat = xf1.R;
+	var tVec = poly1.m_normals[edge1];
+	var normal1X = tMat.col1.x * tVec.x + tMat.col2.x * tVec.y;
+	var normal1Y = tMat.col1.y * tVec.x + tMat.col2.y * tVec.y;
+	tMat = xf2.R;
+	var tX = tMat.col1.x * normal1X + tMat.col1.y * normal1Y;
+	normal1Y = tMat.col2.x * normal1X + tMat.col2.y * normal1Y;
+	var index = 0;
+	var minDot = Number.MAX_VALUE;
+	var _g = 0;
+	while(_g < count2) {
+		var i = _g++;
+		tVec = normals2[i];
+		var dot = tX * tVec.x + normal1Y * tVec.y;
+		if(dot < minDot) {
+			minDot = dot;
+			index = i;
+		}
+	}
+	var i1 = index;
+	var i2 = i1 + 1 < count2 ? i1 + 1 : 0;
+	var tClip = c[0];
+	tVec = vertices2[i1];
+	tMat = xf2.R;
+	tClip.v.x = xf2.position.x + (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y);
+	tClip.v.y = xf2.position.y + (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y);
+	tClip.id.features.set_referenceEdge(edge1);
+	tClip.id.features.set_incidentEdge(i1);
+	tClip.id.features.set_incidentVertex(0);
+	tClip = c[1];
+	tVec = vertices2[i2];
+	tMat = xf2.R;
+	tClip.v.x = xf2.position.x + (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y);
+	tClip.v.y = xf2.position.y + (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y);
+	tClip.id.features.set_referenceEdge(edge1);
+	tClip.id.features.set_incidentEdge(i2);
+	tClip.id.features.set_incidentVertex(1);
+};
+box2D_collision_B2Collision.makeClipPointVector = function() {
+	var r = [];
+	r[0] = new box2D_collision_ClipVertex();
+	r[1] = new box2D_collision_ClipVertex();
+	return r;
+};
+box2D_collision_B2Collision.collidePolygons = function(manifold,polyA,xfA,polyB,xfB) {
+	var cv;
+	manifold.m_pointCount = 0;
+	var totalRadius = polyA.m_radius + polyB.m_radius;
+	var edgeA = 0;
+	box2D_collision_B2Collision.s_edgeAO[0] = 0;
+	var separationA = box2D_collision_B2Collision.findMaxSeparation(box2D_collision_B2Collision.s_edgeAO,polyA,xfA,polyB,xfB);
+	edgeA = box2D_collision_B2Collision.s_edgeAO[0];
+	if(separationA > totalRadius) {
+		return;
+	}
+	var edgeB = 0;
+	box2D_collision_B2Collision.s_edgeBO[0] = 0;
+	var separationB = box2D_collision_B2Collision.findMaxSeparation(box2D_collision_B2Collision.s_edgeBO,polyB,xfB,polyA,xfA);
+	edgeB = box2D_collision_B2Collision.s_edgeBO[0];
+	if(separationB > totalRadius) {
+		return;
+	}
+	var poly1;
+	var poly2;
+	var xf1;
+	var xf2;
+	var edge1;
+	var flip;
+	if(separationB > 0.98 * separationA + 0.001) {
+		poly1 = polyB;
+		poly2 = polyA;
+		xf1 = xfB;
+		xf2 = xfA;
+		edge1 = edgeB;
+		manifold.m_type = box2D_collision_B2ManifoldType.FACE_B;
+		flip = 1;
+	} else {
+		poly1 = polyA;
+		poly2 = polyB;
+		xf1 = xfA;
+		xf2 = xfB;
+		edge1 = edgeA;
+		manifold.m_type = box2D_collision_B2ManifoldType.FACE_A;
+		flip = 0;
+	}
+	var incidentEdge = box2D_collision_B2Collision.s_incidentEdge;
+	box2D_collision_B2Collision.findIncidentEdge(incidentEdge,poly1,xf1,edge1,poly2,xf2);
+	var vertices1 = poly1.m_vertices;
+	var local_v11 = vertices1[edge1];
+	var local_v12;
+	if(edge1 + 1 < poly1.m_vertexCount) {
+		local_v12 = vertices1[edge1 + 1 | 0];
+	} else {
+		local_v12 = vertices1[0];
+	}
+	var localTangent = box2D_collision_B2Collision.s_localTangent;
+	localTangent.set(local_v12.x - local_v11.x,local_v12.y - local_v11.y);
+	localTangent.normalize();
+	var localNormal = box2D_collision_B2Collision.s_localNormal;
+	localNormal.x = localTangent.y;
+	localNormal.y = -localTangent.x;
+	var planePoint = box2D_collision_B2Collision.s_planePoint;
+	planePoint.set(0.5 * (local_v11.x + local_v12.x),0.5 * (local_v11.y + local_v12.y));
+	var tangent = box2D_collision_B2Collision.s_tangent;
+	var tMat = xf1.R;
+	tangent.x = tMat.col1.x * localTangent.x + tMat.col2.x * localTangent.y;
+	tangent.y = tMat.col1.y * localTangent.x + tMat.col2.y * localTangent.y;
+	var tangent2 = box2D_collision_B2Collision.s_tangent2;
+	tangent2.x = -tangent.x;
+	tangent2.y = -tangent.y;
+	var normal = box2D_collision_B2Collision.s_normal;
+	normal.x = tangent.y;
+	normal.y = -tangent.x;
+	var v11 = box2D_collision_B2Collision.s_v11;
+	var v12 = box2D_collision_B2Collision.s_v12;
+	v11.x = xf1.position.x + (tMat.col1.x * local_v11.x + tMat.col2.x * local_v11.y);
+	v11.y = xf1.position.y + (tMat.col1.y * local_v11.x + tMat.col2.y * local_v11.y);
+	v12.x = xf1.position.x + (tMat.col1.x * local_v12.x + tMat.col2.x * local_v12.y);
+	v12.y = xf1.position.y + (tMat.col1.y * local_v12.x + tMat.col2.y * local_v12.y);
+	var frontOffset = normal.x * v11.x + normal.y * v11.y;
+	var sideOffset2 = tangent.x * v12.x + tangent.y * v12.y + totalRadius;
+	var clipPoints1 = box2D_collision_B2Collision.s_clipPoints1;
+	var clipPoints2 = box2D_collision_B2Collision.s_clipPoints2;
+	var np = box2D_collision_B2Collision.clipSegmentToLine(clipPoints1,incidentEdge,tangent2,-tangent.x * v11.x - tangent.y * v11.y + totalRadius);
+	if(np < 2) {
+		return;
+	}
+	np = box2D_collision_B2Collision.clipSegmentToLine(clipPoints2,clipPoints1,tangent,sideOffset2);
+	if(np < 2) {
+		return;
+	}
+	manifold.m_localPlaneNormal.setV(localNormal);
+	manifold.m_localPoint.setV(planePoint);
+	var pointCount = 0;
+	var _g = 0;
+	var _g1 = box2D_common_B2Settings.b2_maxManifoldPoints;
+	while(_g < _g1) {
+		cv = clipPoints2[_g++];
+		if(normal.x * cv.v.x + normal.y * cv.v.y - frontOffset <= totalRadius) {
+			var cp = manifold.m_points[pointCount];
+			tMat = xf2.R;
+			var tX = cv.v.x - xf2.position.x;
+			var tY = cv.v.y - xf2.position.y;
+			cp.m_localPoint.x = tX * tMat.col1.x + tY * tMat.col1.y;
+			cp.m_localPoint.y = tX * tMat.col2.x + tY * tMat.col2.y;
+			cp.m_id.set(cv.id);
+			cp.m_id.features.set_flip(flip);
+			++pointCount;
+		}
+	}
+	manifold.m_pointCount = pointCount;
+};
+box2D_collision_B2Collision.collideCircles = function(manifold,circle1,xf1,circle2,xf2) {
+	manifold.m_pointCount = 0;
+	var tMat = xf1.R;
+	var tVec = circle1.m_p;
+	var p1X = xf1.position.x + (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y);
+	var p1Y = xf1.position.y + (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y);
+	tMat = xf2.R;
+	tVec = circle2.m_p;
+	var dX = xf2.position.x + (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y) - p1X;
+	var dY = xf2.position.y + (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y) - p1Y;
+	var radius = circle1.m_radius + circle2.m_radius;
+	if(dX * dX + dY * dY > radius * radius) {
+		return;
+	}
+	manifold.m_type = box2D_collision_B2ManifoldType.CIRCLES;
+	manifold.m_localPoint.setV(circle1.m_p);
+	manifold.m_localPlaneNormal.setZero();
+	manifold.m_pointCount = 1;
+	manifold.m_points[0].m_localPoint.setV(circle2.m_p);
+	manifold.m_points[0].m_id.set_key(0);
+};
+box2D_collision_B2Collision.collidePolygonAndCircle = function(manifold,polygon,xf1,circle,xf2) {
+	manifold.m_pointCount = 0;
+	var tMat = xf2.R;
+	var tVec = circle.m_p;
+	var dX = xf2.position.x + (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y) - xf1.position.x;
+	var dY = xf2.position.y + (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y) - xf1.position.y;
+	tMat = xf1.R;
+	var cLocalX = dX * tMat.col1.x + dY * tMat.col1.y;
+	var cLocalY = dX * tMat.col2.x + dY * tMat.col2.y;
+	var normalIndex = 0;
+	var separation = -Number.MAX_VALUE;
+	var radius = polygon.m_radius + circle.m_radius;
+	var vertexCount = polygon.m_vertexCount;
+	var vertices = polygon.m_vertices;
+	var normals = polygon.m_normals;
+	var _g = 0;
+	while(_g < vertexCount) {
+		var i = _g++;
+		tVec = vertices[i];
+		dX = cLocalX - tVec.x;
+		dY = cLocalY - tVec.y;
+		tVec = normals[i];
+		var s = tVec.x * dX + tVec.y * dY;
+		if(s > radius) {
+			return;
+		}
+		if(s > separation) {
+			separation = s;
+			normalIndex = i;
+		}
+	}
+	var vertIndex1 = normalIndex;
+	var v1 = vertices[vertIndex1];
+	var v2 = vertices[vertIndex1 + 1 < vertexCount ? vertIndex1 + 1 : 0];
+	if(separation < Number.MIN_VALUE) {
+		manifold.m_pointCount = 1;
+		manifold.m_type = box2D_collision_B2ManifoldType.FACE_A;
+		manifold.m_localPlaneNormal.setV(normals[normalIndex]);
+		manifold.m_localPoint.x = 0.5 * (v1.x + v2.x);
+		manifold.m_localPoint.y = 0.5 * (v1.y + v2.y);
+		manifold.m_points[0].m_localPoint.setV(circle.m_p);
+		manifold.m_points[0].m_id.set_key(0);
+		return;
+	}
+	var u2 = (cLocalX - v2.x) * (v1.x - v2.x) + (cLocalY - v2.y) * (v1.y - v2.y);
+	if((cLocalX - v1.x) * (v2.x - v1.x) + (cLocalY - v1.y) * (v2.y - v1.y) <= 0.0) {
+		if((cLocalX - v1.x) * (cLocalX - v1.x) + (cLocalY - v1.y) * (cLocalY - v1.y) > radius * radius) {
+			return;
+		}
+		manifold.m_pointCount = 1;
+		manifold.m_type = box2D_collision_B2ManifoldType.FACE_A;
+		manifold.m_localPlaneNormal.x = cLocalX - v1.x;
+		manifold.m_localPlaneNormal.y = cLocalY - v1.y;
+		manifold.m_localPlaneNormal.normalize();
+		manifold.m_localPoint.setV(v1);
+		manifold.m_points[0].m_localPoint.setV(circle.m_p);
+		manifold.m_points[0].m_id.set_key(0);
+	} else if(u2 <= 0) {
+		if((cLocalX - v2.x) * (cLocalX - v2.x) + (cLocalY - v2.y) * (cLocalY - v2.y) > radius * radius) {
+			return;
+		}
+		manifold.m_pointCount = 1;
+		manifold.m_type = box2D_collision_B2ManifoldType.FACE_A;
+		manifold.m_localPlaneNormal.x = cLocalX - v2.x;
+		manifold.m_localPlaneNormal.y = cLocalY - v2.y;
+		manifold.m_localPlaneNormal.normalize();
+		manifold.m_localPoint.setV(v2);
+		manifold.m_points[0].m_localPoint.setV(circle.m_p);
+		manifold.m_points[0].m_id.set_key(0);
+	} else {
+		var faceCenterX = 0.5 * (v1.x + v2.x);
+		var faceCenterY = 0.5 * (v1.y + v2.y);
+		separation = (cLocalX - faceCenterX) * normals[vertIndex1].x + (cLocalY - faceCenterY) * normals[vertIndex1].y;
+		if(separation > radius) {
+			return;
+		}
+		manifold.m_pointCount = 1;
+		manifold.m_type = box2D_collision_B2ManifoldType.FACE_A;
+		manifold.m_localPlaneNormal.x = normals[vertIndex1].x;
+		manifold.m_localPlaneNormal.y = normals[vertIndex1].y;
+		manifold.m_localPlaneNormal.normalize();
+		manifold.m_localPoint.set(faceCenterX,faceCenterY);
+		manifold.m_points[0].m_localPoint.setV(circle.m_p);
+		manifold.m_points[0].m_id.set_key(0);
+	}
+};
+var box2D_collision_B2Simplex = function() {
+	this.m_count = 0;
+	this.m_v1 = new box2D_collision_B2SimplexVertex();
+	this.m_v2 = new box2D_collision_B2SimplexVertex();
+	this.m_v3 = new box2D_collision_B2SimplexVertex();
+	this.m_vertices = [];
+	this.m_vertices[0] = this.m_v1;
+	this.m_vertices[1] = this.m_v2;
+	this.m_vertices[2] = this.m_v3;
+};
+$hxClasses["box2D.collision.B2Simplex"] = box2D_collision_B2Simplex;
+box2D_collision_B2Simplex.__name__ = "box2D.collision.B2Simplex";
+box2D_collision_B2Simplex.prototype = {
+	readCache: function(cache,proxyA,transformA,proxyB,transformB) {
+		box2D_common_B2Settings.b2Assert(0 <= cache.count && cache.count <= 3);
+		var wALocal;
+		var wBLocal;
+		this.m_count = cache.count;
+		var vertices = this.m_vertices;
+		var v;
+		var _g = 0;
+		var _g1 = this.m_count;
+		while(_g < _g1) {
+			var i = _g++;
+			v = vertices[i];
+			v.indexA = cache.indexA[i];
+			v.indexB = cache.indexB[i];
+			wALocal = proxyA.getVertex(v.indexA);
+			wBLocal = proxyB.getVertex(v.indexB);
+			v.wA = box2D_common_math_B2Math.mulX(transformA,wALocal);
+			v.wB = box2D_common_math_B2Math.mulX(transformB,wBLocal);
+			v.w = box2D_common_math_B2Math.subtractVV(v.wB,v.wA);
+			v.a = 0;
+		}
+		if(this.m_count > 1) {
+			var metric1 = cache.metric;
+			var metric2 = this.getMetric();
+			if(metric2 < .5 * metric1 || 2.0 * metric1 < metric2 || metric2 < Number.MIN_VALUE) {
+				this.m_count = 0;
+			}
+		}
+		if(this.m_count == 0) {
+			v = vertices[0];
+			v.indexA = 0;
+			v.indexB = 0;
+			wALocal = proxyA.getVertex(0);
+			wBLocal = proxyB.getVertex(0);
+			v.wA = box2D_common_math_B2Math.mulX(transformA,wALocal);
+			v.wB = box2D_common_math_B2Math.mulX(transformB,wBLocal);
+			v.w = box2D_common_math_B2Math.subtractVV(v.wB,v.wA);
+			this.m_count = 1;
+		}
+	}
+	,writeCache: function(cache) {
+		cache.metric = this.getMetric();
+		cache.count = this.m_count | 0;
+		var vertices = this.m_vertices;
+		var _g = 0;
+		var _g1 = this.m_count;
+		while(_g < _g1) {
+			var i = _g++;
+			cache.indexA[i] = vertices[i].indexA | 0;
+			cache.indexB[i] = vertices[i].indexB | 0;
+		}
+	}
+	,getSearchDirection: function() {
+		switch(this.m_count) {
+		case 1:
+			return this.m_v1.w.getNegative();
+		case 2:
+			var e12 = box2D_common_math_B2Math.subtractVV(this.m_v2.w,this.m_v1.w);
+			if(box2D_common_math_B2Math.crossVV(e12,this.m_v1.w.getNegative()) > 0.0) {
+				return box2D_common_math_B2Math.crossFV(1.0,e12);
+			} else {
+				return box2D_common_math_B2Math.crossVF(e12,1.0);
+			}
+			break;
+		default:
+			box2D_common_B2Settings.b2Assert(false);
+			return new box2D_common_math_B2Vec2();
+		}
+	}
+	,getClosestPoint: function() {
+		switch(this.m_count) {
+		case 0:
+			box2D_common_B2Settings.b2Assert(false);
+			return new box2D_common_math_B2Vec2();
+		case 1:
+			return this.m_v1.w;
+		case 2:
+			return new box2D_common_math_B2Vec2(this.m_v1.a * this.m_v1.w.x + this.m_v2.a * this.m_v2.w.x,this.m_v1.a * this.m_v1.w.y + this.m_v2.a * this.m_v2.w.y);
+		default:
+			box2D_common_B2Settings.b2Assert(false);
+			return new box2D_common_math_B2Vec2();
+		}
+	}
+	,getWitnessPoints: function(pA,pB) {
+		switch(this.m_count) {
+		case 0:
+			box2D_common_B2Settings.b2Assert(false);
+			break;
+		case 1:
+			pA.setV(this.m_v1.wA);
+			pB.setV(this.m_v1.wB);
+			break;
+		case 2:
+			pA.x = this.m_v1.a * this.m_v1.wA.x + this.m_v2.a * this.m_v2.wA.x;
+			pA.y = this.m_v1.a * this.m_v1.wA.y + this.m_v2.a * this.m_v2.wA.y;
+			pB.x = this.m_v1.a * this.m_v1.wB.x + this.m_v2.a * this.m_v2.wB.x;
+			pB.y = this.m_v1.a * this.m_v1.wB.y + this.m_v2.a * this.m_v2.wB.y;
+			break;
+		case 3:
+			pB.x = pA.x = this.m_v1.a * this.m_v1.wA.x + this.m_v2.a * this.m_v2.wA.x + this.m_v3.a * this.m_v3.wA.x;
+			pB.y = pA.y = this.m_v1.a * this.m_v1.wA.y + this.m_v2.a * this.m_v2.wA.y + this.m_v3.a * this.m_v3.wA.y;
+			break;
+		default:
+			box2D_common_B2Settings.b2Assert(false);
+		}
+	}
+	,getMetric: function() {
+		switch(this.m_count) {
+		case 0:
+			box2D_common_B2Settings.b2Assert(false);
+			return 0.0;
+		case 1:
+			return 0.0;
+		case 2:
+			return box2D_common_math_B2Math.subtractVV(this.m_v1.w,this.m_v2.w).length();
+		case 3:
+			return box2D_common_math_B2Math.crossVV(box2D_common_math_B2Math.subtractVV(this.m_v2.w,this.m_v1.w),box2D_common_math_B2Math.subtractVV(this.m_v3.w,this.m_v1.w));
+		default:
+			box2D_common_B2Settings.b2Assert(false);
+			return 0.0;
+		}
+	}
+	,solve2: function() {
+		var w1 = this.m_v1.w;
+		var w2 = this.m_v2.w;
+		var e12 = box2D_common_math_B2Math.subtractVV(w2,w1);
+		var d12_2 = -(w1.x * e12.x + w1.y * e12.y);
+		if(d12_2 <= 0.0) {
+			this.m_v1.a = 1.0;
+			this.m_count = 1;
+			return;
+		}
+		var d12_1 = w2.x * e12.x + w2.y * e12.y;
+		if(d12_1 <= 0.0) {
+			this.m_v2.a = 1.0;
+			this.m_count = 1;
+			this.m_v1.set(this.m_v2);
+			return;
+		}
+		var inv_d12 = 1.0 / (d12_1 + d12_2);
+		this.m_v1.a = d12_1 * inv_d12;
+		this.m_v2.a = d12_2 * inv_d12;
+		this.m_count = 2;
+	}
+	,solve3: function() {
+		var w1 = this.m_v1.w;
+		var w2 = this.m_v2.w;
+		var w3 = this.m_v3.w;
+		var e12 = box2D_common_math_B2Math.subtractVV(w2,w1);
+		var w2e12 = box2D_common_math_B2Math.dot(w2,e12);
+		var d12_2 = -box2D_common_math_B2Math.dot(w1,e12);
+		var e13 = box2D_common_math_B2Math.subtractVV(w3,w1);
+		var w3e13 = box2D_common_math_B2Math.dot(w3,e13);
+		var d13_2 = -box2D_common_math_B2Math.dot(w1,e13);
+		var e23 = box2D_common_math_B2Math.subtractVV(w3,w2);
+		var w3e23 = box2D_common_math_B2Math.dot(w3,e23);
+		var d23_2 = -box2D_common_math_B2Math.dot(w2,e23);
+		var n123 = box2D_common_math_B2Math.crossVV(e12,e13);
+		var d123_1 = n123 * box2D_common_math_B2Math.crossVV(w2,w3);
+		var d123_2 = n123 * box2D_common_math_B2Math.crossVV(w3,w1);
+		var d123_3 = n123 * box2D_common_math_B2Math.crossVV(w1,w2);
+		if(d12_2 <= 0.0 && d13_2 <= 0.0) {
+			this.m_v1.a = 1.0;
+			this.m_count = 1;
+			return;
+		}
+		if(w2e12 > 0.0 && d12_2 > 0.0 && d123_3 <= 0.0) {
+			var inv_d12 = 1.0 / (w2e12 + d12_2);
+			this.m_v1.a = w2e12 * inv_d12;
+			this.m_v2.a = d12_2 * inv_d12;
+			this.m_count = 2;
+			return;
+		}
+		if(w3e13 > 0.0 && d13_2 > 0.0 && d123_2 <= 0.0) {
+			var inv_d13 = 1.0 / (w3e13 + d13_2);
+			this.m_v1.a = w3e13 * inv_d13;
+			this.m_v3.a = d13_2 * inv_d13;
+			this.m_count = 2;
+			this.m_v2.set(this.m_v3);
+			return;
+		}
+		if(w2e12 <= 0.0 && d23_2 <= 0.0) {
+			this.m_v2.a = 1.0;
+			this.m_count = 1;
+			this.m_v1.set(this.m_v2);
+			return;
+		}
+		if(w3e13 <= 0.0 && w3e23 <= 0.0) {
+			this.m_v3.a = 1.0;
+			this.m_count = 1;
+			this.m_v1.set(this.m_v3);
+			return;
+		}
+		if(w3e23 > 0.0 && d23_2 > 0.0 && d123_1 <= 0.0) {
+			var inv_d23 = 1.0 / (w3e23 + d23_2);
+			this.m_v2.a = w3e23 * inv_d23;
+			this.m_v3.a = d23_2 * inv_d23;
+			this.m_count = 2;
+			this.m_v1.set(this.m_v3);
+			return;
+		}
+		var inv_d123 = 1.0 / (d123_1 + d123_2 + d123_3);
+		this.m_v1.a = d123_1 * inv_d123;
+		this.m_v2.a = d123_2 * inv_d123;
+		this.m_v3.a = d123_3 * inv_d123;
+		this.m_count = 3;
+	}
+	,__class__: box2D_collision_B2Simplex
+};
+var box2D_collision_B2SimplexVertex = function() {
+	this.indexB = 0;
+	this.indexA = 0;
+	this.a = 0;
+};
+$hxClasses["box2D.collision.B2SimplexVertex"] = box2D_collision_B2SimplexVertex;
+box2D_collision_B2SimplexVertex.__name__ = "box2D.collision.B2SimplexVertex";
+box2D_collision_B2SimplexVertex.prototype = {
+	set: function(other) {
+		this.wA.setV(other.wA);
+		this.wB.setV(other.wB);
+		this.w.setV(other.w);
+		this.a = other.a;
+		this.indexA = other.indexA;
+		this.indexB = other.indexB;
+	}
+	,__class__: box2D_collision_B2SimplexVertex
+};
+var box2D_collision_B2Distance = function() { };
+$hxClasses["box2D.collision.B2Distance"] = box2D_collision_B2Distance;
+box2D_collision_B2Distance.__name__ = "box2D.collision.B2Distance";
+box2D_collision_B2Distance.distance = function(output,cache,input) {
+	++box2D_collision_B2Distance.b2_gjkCalls;
+	var proxyA = input.proxyA;
+	var proxyB = input.proxyB;
+	var transformA = input.transformA;
+	var transformB = input.transformB;
+	var simplex = box2D_collision_B2Distance.s_simplex;
+	simplex.readCache(cache,proxyA,transformA,proxyB,transformB);
+	var vertices = simplex.m_vertices;
+	var saveA = box2D_collision_B2Distance.s_saveA;
+	var saveB = box2D_collision_B2Distance.s_saveB;
+	var saveCount = 0;
+	var distanceSqr1 = simplex.getClosestPoint().lengthSquared();
+	var distanceSqr2 = distanceSqr1;
+	var p;
+	var iter = 0;
+	while(iter < 20) {
+		saveCount = simplex.m_count;
+		var _g = 0;
+		var _g1 = saveCount;
+		while(_g < _g1) {
+			var i = _g++;
+			saveA[i] = vertices[i].indexA;
+			saveB[i] = vertices[i].indexB;
+		}
+		switch(simplex.m_count) {
+		case 1:
+			break;
+		case 2:
+			simplex.solve2();
+			break;
+		case 3:
+			simplex.solve3();
+			break;
+		default:
+			box2D_common_B2Settings.b2Assert(false);
+		}
+		if(simplex.m_count == 3) {
+			break;
+		}
+		p = simplex.getClosestPoint();
+		distanceSqr2 = p.lengthSquared();
+		distanceSqr1 = distanceSqr2;
+		var d = simplex.getSearchDirection();
+		if(d.lengthSquared() < Number.MIN_VALUE * Number.MIN_VALUE) {
+			break;
+		}
+		var vertex = vertices[simplex.m_count];
+		vertex.indexA = proxyA.getSupport(box2D_common_math_B2Math.mulTMV(transformA.R,d.getNegative())) | 0;
+		vertex.wA = box2D_common_math_B2Math.mulX(transformA,proxyA.getVertex(vertex.indexA));
+		vertex.indexB = proxyB.getSupport(box2D_common_math_B2Math.mulTMV(transformB.R,d)) | 0;
+		vertex.wB = box2D_common_math_B2Math.mulX(transformB,proxyB.getVertex(vertex.indexB));
+		vertex.w = box2D_common_math_B2Math.subtractVV(vertex.wB,vertex.wA);
+		++iter;
+		++box2D_collision_B2Distance.b2_gjkIters;
+		var duplicate = false;
+		var _g2 = 0;
+		var _g3 = saveCount;
+		while(_g2 < _g3) {
+			var i1 = _g2++;
+			if(vertex.indexA == saveA[i1] && vertex.indexB == saveB[i1]) {
+				duplicate = true;
+				break;
+			}
+		}
+		if(duplicate) {
+			break;
+		}
+		++simplex.m_count;
+	}
+	box2D_collision_B2Distance.b2_gjkMaxIters = box2D_common_math_B2Math.max(box2D_collision_B2Distance.b2_gjkMaxIters,iter) | 0;
+	simplex.getWitnessPoints(output.pointA,output.pointB);
+	output.distance = box2D_common_math_B2Math.subtractVV(output.pointA,output.pointB).length();
+	output.iterations = iter;
+	simplex.writeCache(cache);
+	if(input.useRadii) {
+		var rA = proxyA.m_radius;
+		var rB = proxyB.m_radius;
+		if(output.distance > rA + rB && output.distance > Number.MIN_VALUE) {
+			output.distance -= rA + rB;
+			var normal = box2D_common_math_B2Math.subtractVV(output.pointB,output.pointA);
+			normal.normalize();
+			output.pointA.x += rA * normal.x;
+			output.pointA.y += rA * normal.y;
+			output.pointB.x -= rB * normal.x;
+			output.pointB.y -= rB * normal.y;
+		} else {
+			p = new box2D_common_math_B2Vec2();
+			p.x = .5 * (output.pointA.x + output.pointB.x);
+			p.y = .5 * (output.pointA.y + output.pointB.y);
+			output.pointA.x = output.pointB.x = p.x;
+			output.pointA.y = output.pointB.y = p.y;
+			output.distance = 0.0;
+		}
+	}
+};
+var box2D_collision_B2DistanceInput = function() {
+};
+$hxClasses["box2D.collision.B2DistanceInput"] = box2D_collision_B2DistanceInput;
+box2D_collision_B2DistanceInput.__name__ = "box2D.collision.B2DistanceInput";
+box2D_collision_B2DistanceInput.prototype = {
+	__class__: box2D_collision_B2DistanceInput
+};
+var box2D_collision_B2DistanceOutput = function() {
+	this.pointA = new box2D_common_math_B2Vec2();
+	this.pointB = new box2D_common_math_B2Vec2();
+};
+$hxClasses["box2D.collision.B2DistanceOutput"] = box2D_collision_B2DistanceOutput;
+box2D_collision_B2DistanceOutput.__name__ = "box2D.collision.B2DistanceOutput";
+box2D_collision_B2DistanceOutput.prototype = {
+	__class__: box2D_collision_B2DistanceOutput
+};
+var box2D_collision_B2DistanceProxy = function() {
+	this.m_radius = 0;
+	this.m_count = 0;
+	this.m_vertices = [];
+};
+$hxClasses["box2D.collision.B2DistanceProxy"] = box2D_collision_B2DistanceProxy;
+box2D_collision_B2DistanceProxy.__name__ = "box2D.collision.B2DistanceProxy";
+box2D_collision_B2DistanceProxy.prototype = {
+	set: function(shape) {
+		switch(shape.getType()) {
+		case 1:
+			var circle = js_Boot.__cast(shape , box2D_collision_shapes_B2CircleShape);
+			this.m_vertices = [];
+			this.m_vertices[0] = circle.m_p;
+			this.m_count = 1;
+			this.m_radius = circle.m_radius;
+			break;
+		case 2:
+			var polygon = js_Boot.__cast(shape , box2D_collision_shapes_B2PolygonShape);
+			this.m_vertices = polygon.m_vertices;
+			this.m_count = polygon.m_vertexCount;
+			this.m_radius = polygon.m_radius;
+			break;
+		default:
+			box2D_common_B2Settings.b2Assert(false);
+		}
+	}
+	,getSupport: function(d) {
+		var bestIndex = 0;
+		var bestValue = this.m_vertices[0].x * d.x + this.m_vertices[0].y * d.y;
+		var _g = 1;
+		var _g1 = this.m_count;
+		while(_g < _g1) {
+			var i = _g++;
+			var value = this.m_vertices[i].x * d.x + this.m_vertices[i].y * d.y;
+			if(value > bestValue) {
+				bestIndex = i;
+				bestValue = value;
+			}
+		}
+		return bestIndex;
+	}
+	,getSupportVertex: function(d) {
+		var bestIndex = 0;
+		var bestValue = this.m_vertices[0].x * d.x + this.m_vertices[0].y * d.y;
+		var _g = 1;
+		var _g1 = this.m_count;
+		while(_g < _g1) {
+			var i = _g++;
+			var value = this.m_vertices[i].x * d.x + this.m_vertices[i].y * d.y;
+			if(value > bestValue) {
+				bestIndex = i;
+				bestValue = value;
+			}
+		}
+		return this.m_vertices[bestIndex];
+	}
+	,getVertex: function(index) {
+		box2D_common_B2Settings.b2Assert(0 <= index && index < this.m_count);
+		return this.m_vertices[index];
+	}
+	,__class__: box2D_collision_B2DistanceProxy
+};
+var box2D_collision_B2DynamicTree = function() {
+	this.m_root = null;
+	this.m_freeList = null;
+	this.m_path = 0;
+	this.m_insertionCount = 0;
+};
+$hxClasses["box2D.collision.B2DynamicTree"] = box2D_collision_B2DynamicTree;
+box2D_collision_B2DynamicTree.__name__ = "box2D.collision.B2DynamicTree";
+box2D_collision_B2DynamicTree.prototype = {
+	moveProxy: function(proxy,aabb,displacement) {
+		box2D_common_B2Settings.b2Assert(proxy.isLeaf());
+		if(proxy.aabb.contains(aabb)) {
+			return false;
+		}
+		this.removeLeaf(proxy);
+		var extendX = box2D_common_B2Settings.b2_aabbExtension + box2D_common_B2Settings.b2_aabbMultiplier * (displacement.x > 0 ? displacement.x : -displacement.x);
+		var extendY = box2D_common_B2Settings.b2_aabbExtension + box2D_common_B2Settings.b2_aabbMultiplier * (displacement.y > 0 ? displacement.y : -displacement.y);
+		proxy.aabb.lowerBound.x = aabb.lowerBound.x - extendX;
+		proxy.aabb.lowerBound.y = aabb.lowerBound.y - extendY;
+		proxy.aabb.upperBound.x = aabb.upperBound.x + extendX;
+		proxy.aabb.upperBound.y = aabb.upperBound.y + extendY;
+		this.insertLeaf(proxy);
+		return true;
+	}
+	,getFatAABB: function(proxy) {
+		return proxy.aabb;
+	}
+	,getUserData: function(proxy) {
+		return proxy.userData;
+	}
+	,query: function(callbackMethod,aabb) {
+		if(this.m_root == null) {
+			return;
+		}
+		var stack = [];
+		var count = 0;
+		count = 1;
+		stack[0] = this.m_root;
+		while(count > 0) {
+			var node = stack[--count];
+			if(node.aabb.testOverlap(aabb)) {
+				if(node.isLeaf()) {
+					if(!callbackMethod(node)) {
+						return;
+					}
+				} else {
+					stack[count++] = node.child1;
+					stack[count++] = node.child2;
+				}
+			}
+		}
+	}
+	,allocateNode: function() {
+		if(this.m_freeList != null) {
+			var node = this.m_freeList;
+			this.m_freeList = node.parent;
+			node.parent = null;
+			node.child1 = null;
+			node.child2 = null;
+			return node;
+		}
+		return new box2D_collision_B2DynamicTreeNode();
+	}
+	,freeNode: function(node) {
+		node.parent = this.m_freeList;
+		this.m_freeList = node;
+	}
+	,insertLeaf: function(leaf) {
+		++this.m_insertionCount;
+		if(this.m_root == null) {
+			this.m_root = leaf;
+			this.m_root.parent = null;
+			return;
+		}
+		var center = leaf.aabb.getCenter();
+		var sibling = this.m_root;
+		if(sibling.isLeaf() == false) {
+			do {
+				var child1 = sibling.child1;
+				var child2 = sibling.child2;
+				if(Math.abs((child1.aabb.lowerBound.x + child1.aabb.upperBound.x) / 2 - center.x) + Math.abs((child1.aabb.lowerBound.y + child1.aabb.upperBound.y) / 2 - center.y) < Math.abs((child2.aabb.lowerBound.x + child2.aabb.upperBound.x) / 2 - center.x) + Math.abs((child2.aabb.lowerBound.y + child2.aabb.upperBound.y) / 2 - center.y)) {
+					sibling = child1;
+				} else {
+					sibling = child2;
+				}
+			} while(sibling.isLeaf() == false);
+		}
+		var node1 = sibling.parent;
+		var node2 = this.allocateNode();
+		node2.parent = node1;
+		node2.userData = null;
+		node2.aabb.combine(leaf.aabb,sibling.aabb);
+		if(node1 != null) {
+			if(sibling.parent.child1 == sibling) {
+				node1.child1 = node2;
+			} else {
+				node1.child2 = node2;
+			}
+			node2.child1 = sibling;
+			node2.child2 = leaf;
+			sibling.parent = node2;
+			leaf.parent = node2;
+			while(!node1.aabb.contains(node2.aabb)) {
+				node1.aabb.combine(node1.child1.aabb,node1.child2.aabb);
+				node2 = node1;
+				node1 = node1.parent;
+				if(!(node1 != null)) {
+					break;
+				}
+			}
+		} else {
+			node2.child1 = sibling;
+			node2.child2 = leaf;
+			sibling.parent = node2;
+			leaf.parent = node2;
+			this.m_root = node2;
+		}
+	}
+	,removeLeaf: function(leaf) {
+		if(leaf == this.m_root) {
+			this.m_root = null;
+			return;
+		}
+		var node2 = leaf.parent;
+		var node1 = node2.parent;
+		var sibling;
+		if(node2.child1 == leaf) {
+			sibling = node2.child2;
+		} else {
+			sibling = node2.child1;
+		}
+		if(node1 != null) {
+			if(node1.child1 == node2) {
+				node1.child1 = sibling;
+			} else {
+				node1.child2 = sibling;
+			}
+			sibling.parent = node1;
+			this.freeNode(node2);
+			while(node1 != null) {
+				var oldAABB = node1.aabb;
+				node1.aabb = new box2D_collision_B2AABB();
+				node1.aabb.combine(node1.child1.aabb,node1.child2.aabb);
+				if(oldAABB.contains(node1.aabb)) {
+					break;
+				}
+				node1 = node1.parent;
+			}
+		} else {
+			this.m_root = sibling;
+			sibling.parent = null;
+			this.freeNode(node2);
+		}
+	}
+	,__class__: box2D_collision_B2DynamicTree
+};
+var box2D_collision_IBroadPhase = function() { };
+$hxClasses["box2D.collision.IBroadPhase"] = box2D_collision_IBroadPhase;
+box2D_collision_IBroadPhase.__name__ = "box2D.collision.IBroadPhase";
+box2D_collision_IBroadPhase.__isInterface__ = true;
+box2D_collision_IBroadPhase.prototype = {
+	__class__: box2D_collision_IBroadPhase
+};
+var box2D_collision_B2DynamicTreeBroadPhase = function() {
+	this.m_tree = new box2D_collision_B2DynamicTree();
+	this.m_moveBuffer = [];
+	this.m_pairBuffer = [];
+	this.m_pairCount = 0;
+	this.m_proxyCount = 0;
+};
+$hxClasses["box2D.collision.B2DynamicTreeBroadPhase"] = box2D_collision_B2DynamicTreeBroadPhase;
+box2D_collision_B2DynamicTreeBroadPhase.__name__ = "box2D.collision.B2DynamicTreeBroadPhase";
+box2D_collision_B2DynamicTreeBroadPhase.__interfaces__ = [box2D_collision_IBroadPhase];
+box2D_collision_B2DynamicTreeBroadPhase.prototype = {
+	moveProxy: function(proxy,aabb,displacement) {
+		if(this.m_tree.moveProxy(proxy,aabb,displacement)) {
+			this.bufferMove(proxy);
+		}
+	}
+	,testOverlap: function(proxyA,proxyB) {
+		return this.m_tree.getFatAABB(proxyA).testOverlap(this.m_tree.getFatAABB(proxyB));
+	}
+	,updatePairsQueryCallback: function(proxy) {
+		if(proxy == this.m_queryProxy) {
+			return true;
+		}
+		if(this.m_pairCount == this.m_pairBuffer.length) {
+			this.m_pairBuffer[this.m_pairCount] = new box2D_collision_B2DynamicTreePair();
+		}
+		var pair = this.m_pairBuffer[this.m_pairCount];
+		if(proxy.id < this.m_queryProxy.id) {
+			pair.proxyA = proxy;
+			pair.proxyB = this.m_queryProxy;
+		} else {
+			pair.proxyA = this.m_queryProxy;
+			pair.proxyB = proxy;
+		}
+		++this.m_pairCount;
+		return true;
+	}
+	,updatePairs: function(callbackMethod) {
+		this.m_pairCount = 0;
+		var _g = 0;
+		var _g1 = this.m_moveBuffer;
+		while(_g < _g1.length) {
+			var queryProxy = _g1[_g];
+			++_g;
+			this.m_queryProxy = queryProxy;
+			var fatAABB = this.m_tree.getFatAABB(queryProxy);
+			this.m_tree.query($bind(this,this.updatePairsQueryCallback),fatAABB);
+		}
+		this.m_moveBuffer = [];
+		var pairing = true;
+		var i = 0;
+		while(pairing) if(i >= this.m_pairCount) {
+			pairing = false;
+		} else {
+			var primaryPair = this.m_pairBuffer[i];
+			callbackMethod(this.m_tree.getUserData(primaryPair.proxyA),this.m_tree.getUserData(primaryPair.proxyB));
+			++i;
+			while(i < this.m_pairCount) {
+				var pair = this.m_pairBuffer[i];
+				if(pair.proxyA != primaryPair.proxyA || pair.proxyB != primaryPair.proxyB) {
+					break;
+				}
+				++i;
+			}
+		}
+	}
+	,bufferMove: function(proxy) {
+		this.m_moveBuffer[this.m_moveBuffer.length] = proxy;
+	}
+	,__class__: box2D_collision_B2DynamicTreeBroadPhase
+};
+var box2D_collision_B2DynamicTreeNode = function() {
+	this.aabb = new box2D_collision_B2AABB();
+	this.id = box2D_collision_B2DynamicTreeNode.currentID++;
+};
+$hxClasses["box2D.collision.B2DynamicTreeNode"] = box2D_collision_B2DynamicTreeNode;
+box2D_collision_B2DynamicTreeNode.__name__ = "box2D.collision.B2DynamicTreeNode";
+box2D_collision_B2DynamicTreeNode.prototype = {
+	isLeaf: function() {
+		return this.child1 == null;
+	}
+	,__class__: box2D_collision_B2DynamicTreeNode
+};
+var box2D_collision_B2DynamicTreePair = function() {
+};
+$hxClasses["box2D.collision.B2DynamicTreePair"] = box2D_collision_B2DynamicTreePair;
+box2D_collision_B2DynamicTreePair.__name__ = "box2D.collision.B2DynamicTreePair";
+box2D_collision_B2DynamicTreePair.prototype = {
+	__class__: box2D_collision_B2DynamicTreePair
+};
+var box2D_collision_B2Manifold = function() {
+	this.m_pointCount = 0;
+	this.m_points = [];
+	var _g = 0;
+	var _g1 = box2D_common_B2Settings.b2_maxManifoldPoints;
+	while(_g < _g1) this.m_points[_g++] = new box2D_collision_B2ManifoldPoint();
+	this.m_localPlaneNormal = new box2D_common_math_B2Vec2();
+	this.m_localPoint = new box2D_common_math_B2Vec2();
+};
+$hxClasses["box2D.collision.B2Manifold"] = box2D_collision_B2Manifold;
+box2D_collision_B2Manifold.__name__ = "box2D.collision.B2Manifold";
+box2D_collision_B2Manifold.prototype = {
+	__class__: box2D_collision_B2Manifold
+};
+var box2D_collision_B2ManifoldPoint = function() {
+	this.m_localPoint = new box2D_common_math_B2Vec2();
+	this.m_id = new box2D_collision_B2ContactID();
+	this.reset();
+};
+$hxClasses["box2D.collision.B2ManifoldPoint"] = box2D_collision_B2ManifoldPoint;
+box2D_collision_B2ManifoldPoint.__name__ = "box2D.collision.B2ManifoldPoint";
+box2D_collision_B2ManifoldPoint.prototype = {
+	reset: function() {
+		this.m_localPoint.setZero();
+		this.m_normalImpulse = 0.0;
+		this.m_tangentImpulse = 0.0;
+		this.m_id.set_key(0);
+	}
+	,__class__: box2D_collision_B2ManifoldPoint
+};
+var box2D_collision_B2ManifoldType = $hxEnums["box2D.collision.B2ManifoldType"] = { __ename__:"box2D.collision.B2ManifoldType",__constructs__:null
+	,CIRCLES: {_hx_name:"CIRCLES",_hx_index:0,__enum__:"box2D.collision.B2ManifoldType",toString:$estr}
+	,FACE_A: {_hx_name:"FACE_A",_hx_index:1,__enum__:"box2D.collision.B2ManifoldType",toString:$estr}
+	,FACE_B: {_hx_name:"FACE_B",_hx_index:2,__enum__:"box2D.collision.B2ManifoldType",toString:$estr}
+};
+box2D_collision_B2ManifoldType.__constructs__ = [box2D_collision_B2ManifoldType.CIRCLES,box2D_collision_B2ManifoldType.FACE_A,box2D_collision_B2ManifoldType.FACE_B];
+box2D_collision_B2ManifoldType.__empty_constructs__ = [box2D_collision_B2ManifoldType.CIRCLES,box2D_collision_B2ManifoldType.FACE_A,box2D_collision_B2ManifoldType.FACE_B];
+var box2D_collision_B2SeparationFunction = function() {
+	this.m_localPoint = new box2D_common_math_B2Vec2();
+	this.m_axis = new box2D_common_math_B2Vec2();
+};
+$hxClasses["box2D.collision.B2SeparationFunction"] = box2D_collision_B2SeparationFunction;
+box2D_collision_B2SeparationFunction.__name__ = "box2D.collision.B2SeparationFunction";
+box2D_collision_B2SeparationFunction.prototype = {
+	initialize: function(cache,proxyA,transformA,proxyB,transformB) {
+		this.m_proxyA = proxyA;
+		this.m_proxyB = proxyB;
+		var count = cache.count;
+		box2D_common_B2Settings.b2Assert(0 < count && count < 3);
+		var localPointA = new box2D_common_math_B2Vec2();
+		var localPointA1;
+		var localPointA2;
+		var localPointB = new box2D_common_math_B2Vec2();
+		var localPointB1;
+		var localPointB2;
+		var pointAX;
+		var pointAY;
+		var pointBX;
+		var pointBY;
+		var normalX;
+		var normalY;
+		var tMat;
+		var tVec;
+		var s;
+		if(count == 1) {
+			this.m_type = box2D_collision_B2SeparationFunctionType.POINTS;
+			localPointA = this.m_proxyA.getVertex(cache.indexA[0]);
+			localPointB = this.m_proxyB.getVertex(cache.indexB[0]);
+			tVec = localPointA;
+			tMat = transformA.R;
+			pointAX = transformA.position.x + (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y);
+			pointAY = transformA.position.y + (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y);
+			tVec = localPointB;
+			tMat = transformB.R;
+			pointBX = transformB.position.x + (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y);
+			pointBY = transformB.position.y + (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y);
+			this.m_axis.x = pointBX - pointAX;
+			this.m_axis.y = pointBY - pointAY;
+			this.m_axis.normalize();
+		} else if(cache.indexB[0] == cache.indexB[1]) {
+			this.m_type = box2D_collision_B2SeparationFunctionType.FACE_A;
+			localPointA1 = this.m_proxyA.getVertex(cache.indexA[0]);
+			localPointA2 = this.m_proxyA.getVertex(cache.indexA[1]);
+			localPointB = this.m_proxyB.getVertex(cache.indexB[0]);
+			this.m_localPoint.x = 0.5 * (localPointA1.x + localPointA2.x);
+			this.m_localPoint.y = 0.5 * (localPointA1.y + localPointA2.y);
+			this.m_axis = box2D_common_math_B2Math.crossVF(box2D_common_math_B2Math.subtractVV(localPointA2,localPointA1),1.0);
+			this.m_axis.normalize();
+			tVec = this.m_axis;
+			tMat = transformA.R;
+			normalX = tMat.col1.x * tVec.x + tMat.col2.x * tVec.y;
+			normalY = tMat.col1.y * tVec.x + tMat.col2.y * tVec.y;
+			tVec = this.m_localPoint;
+			tMat = transformA.R;
+			pointAX = transformA.position.x + (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y);
+			pointAY = transformA.position.y + (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y);
+			tVec = localPointB;
+			tMat = transformB.R;
+			pointBX = transformB.position.x + (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y);
+			pointBY = transformB.position.y + (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y);
+			s = (pointBX - pointAX) * normalX + (pointBY - pointAY) * normalY;
+			if(s < 0.0) {
+				this.m_axis.negativeSelf();
+			}
+		} else if(cache.indexA[0] == cache.indexA[0]) {
+			this.m_type = box2D_collision_B2SeparationFunctionType.FACE_B;
+			localPointB1 = this.m_proxyB.getVertex(cache.indexB[0]);
+			localPointB2 = this.m_proxyB.getVertex(cache.indexB[1]);
+			localPointA = this.m_proxyA.getVertex(cache.indexA[0]);
+			this.m_localPoint.x = 0.5 * (localPointB1.x + localPointB2.x);
+			this.m_localPoint.y = 0.5 * (localPointB1.y + localPointB2.y);
+			this.m_axis = box2D_common_math_B2Math.crossVF(box2D_common_math_B2Math.subtractVV(localPointB2,localPointB1),1.0);
+			this.m_axis.normalize();
+			tVec = this.m_axis;
+			tMat = transformB.R;
+			normalX = tMat.col1.x * tVec.x + tMat.col2.x * tVec.y;
+			normalY = tMat.col1.y * tVec.x + tMat.col2.y * tVec.y;
+			tVec = this.m_localPoint;
+			tMat = transformB.R;
+			pointBX = transformB.position.x + (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y);
+			pointBY = transformB.position.y + (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y);
+			tVec = localPointA;
+			tMat = transformA.R;
+			pointAX = transformA.position.x + (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y);
+			pointAY = transformA.position.y + (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y);
+			s = (pointAX - pointBX) * normalX + (pointAY - pointBY) * normalY;
+			if(s < 0.0) {
+				this.m_axis.negativeSelf();
+			}
+		} else {
+			localPointA1 = this.m_proxyA.getVertex(cache.indexA[0]);
+			localPointA2 = this.m_proxyA.getVertex(cache.indexA[1]);
+			localPointB1 = this.m_proxyB.getVertex(cache.indexB[0]);
+			localPointB2 = this.m_proxyB.getVertex(cache.indexB[1]);
+			box2D_common_math_B2Math.mulX(transformA,localPointA);
+			var dA = box2D_common_math_B2Math.mulMV(transformA.R,box2D_common_math_B2Math.subtractVV(localPointA2,localPointA1));
+			box2D_common_math_B2Math.mulX(transformB,localPointB);
+			var dB = box2D_common_math_B2Math.mulMV(transformB.R,box2D_common_math_B2Math.subtractVV(localPointB2,localPointB1));
+			var a = dA.x * dA.x + dA.y * dA.y;
+			var e = dB.x * dB.x + dB.y * dB.y;
+			var r = box2D_common_math_B2Math.subtractVV(dB,dA);
+			var c = dA.x * r.x + dA.y * r.y;
+			var f = dB.x * r.x + dB.y * r.y;
+			var b = dA.x * dB.x + dA.y * dB.y;
+			var denom = a * e - b * b;
+			s = 0.0;
+			if(denom != 0.0) {
+				s = box2D_common_math_B2Math.clamp((b * f - c * e) / denom,0.0,1.0);
+			}
+			if((b * s + f) / e < 0.0) {
+				s = box2D_common_math_B2Math.clamp((b - c) / a,0.0,1.0);
+			}
+			localPointA = new box2D_common_math_B2Vec2();
+			localPointA.x = localPointA1.x + s * (localPointA2.x - localPointA1.x);
+			localPointA.y = localPointA1.y + s * (localPointA2.y - localPointA1.y);
+			localPointB = new box2D_common_math_B2Vec2();
+			localPointB.x = localPointB1.x + s * (localPointB2.x - localPointB1.x);
+			localPointB.y = localPointB1.y + s * (localPointB2.y - localPointB1.y);
+			if(s == 0.0 || s == 1.0) {
+				this.m_type = box2D_collision_B2SeparationFunctionType.FACE_B;
+				this.m_axis = box2D_common_math_B2Math.crossVF(box2D_common_math_B2Math.subtractVV(localPointB2,localPointB1),1.0);
+				this.m_axis.normalize();
+				this.m_localPoint = localPointB;
+				if(s < 0.0) {
+					this.m_axis.negativeSelf();
+				}
+			} else {
+				this.m_type = box2D_collision_B2SeparationFunctionType.FACE_A;
+				this.m_axis = box2D_common_math_B2Math.crossVF(box2D_common_math_B2Math.subtractVV(localPointA2,localPointA1),1.0);
+				this.m_localPoint = localPointA;
+				if(s < 0.0) {
+					this.m_axis.negativeSelf();
+				}
+			}
+		}
+	}
+	,evaluate: function(transformA,transformB) {
+		var axisA;
+		var axisB;
+		var localPointA;
+		var localPointB;
+		var pointA;
+		var pointB;
+		var seperation;
+		var normal;
+		switch(this.m_type._hx_index) {
+		case 0:
+			axisA = box2D_common_math_B2Math.mulTMV(transformA.R,this.m_axis);
+			axisB = box2D_common_math_B2Math.mulTMV(transformB.R,this.m_axis.getNegative());
+			localPointA = this.m_proxyA.getSupportVertex(axisA);
+			localPointB = this.m_proxyB.getSupportVertex(axisB);
+			pointA = box2D_common_math_B2Math.mulX(transformA,localPointA);
+			pointB = box2D_common_math_B2Math.mulX(transformB,localPointB);
+			seperation = (pointB.x - pointA.x) * this.m_axis.x + (pointB.y - pointA.y) * this.m_axis.y;
+			return seperation;
+		case 1:
+			normal = box2D_common_math_B2Math.mulMV(transformA.R,this.m_axis);
+			pointA = box2D_common_math_B2Math.mulX(transformA,this.m_localPoint);
+			axisB = box2D_common_math_B2Math.mulTMV(transformB.R,normal.getNegative());
+			localPointB = this.m_proxyB.getSupportVertex(axisB);
+			pointB = box2D_common_math_B2Math.mulX(transformB,localPointB);
+			seperation = (pointB.x - pointA.x) * normal.x + (pointB.y - pointA.y) * normal.y;
+			return seperation;
+		case 2:
+			normal = box2D_common_math_B2Math.mulMV(transformB.R,this.m_axis);
+			pointB = box2D_common_math_B2Math.mulX(transformB,this.m_localPoint);
+			axisA = box2D_common_math_B2Math.mulTMV(transformA.R,normal.getNegative());
+			localPointA = this.m_proxyA.getSupportVertex(axisA);
+			pointA = box2D_common_math_B2Math.mulX(transformA,localPointA);
+			seperation = (pointA.x - pointB.x) * normal.x + (pointA.y - pointB.y) * normal.y;
+			return seperation;
+		}
+	}
+	,__class__: box2D_collision_B2SeparationFunction
+};
+var box2D_collision_B2SeparationFunctionType = $hxEnums["box2D.collision.B2SeparationFunctionType"] = { __ename__:"box2D.collision.B2SeparationFunctionType",__constructs__:null
+	,POINTS: {_hx_name:"POINTS",_hx_index:0,__enum__:"box2D.collision.B2SeparationFunctionType",toString:$estr}
+	,FACE_A: {_hx_name:"FACE_A",_hx_index:1,__enum__:"box2D.collision.B2SeparationFunctionType",toString:$estr}
+	,FACE_B: {_hx_name:"FACE_B",_hx_index:2,__enum__:"box2D.collision.B2SeparationFunctionType",toString:$estr}
+};
+box2D_collision_B2SeparationFunctionType.__constructs__ = [box2D_collision_B2SeparationFunctionType.POINTS,box2D_collision_B2SeparationFunctionType.FACE_A,box2D_collision_B2SeparationFunctionType.FACE_B];
+box2D_collision_B2SeparationFunctionType.__empty_constructs__ = [box2D_collision_B2SeparationFunctionType.POINTS,box2D_collision_B2SeparationFunctionType.FACE_A,box2D_collision_B2SeparationFunctionType.FACE_B];
+var box2D_collision_B2SimplexCache = function() {
+	this.count = 0;
+	this.metric = 0;
+	this.indexA = [];
+	this.indexB = [];
+};
+$hxClasses["box2D.collision.B2SimplexCache"] = box2D_collision_B2SimplexCache;
+box2D_collision_B2SimplexCache.__name__ = "box2D.collision.B2SimplexCache";
+box2D_collision_B2SimplexCache.prototype = {
+	__class__: box2D_collision_B2SimplexCache
+};
+var box2D_collision_B2TOIInput = function() {
+	this.proxyA = new box2D_collision_B2DistanceProxy();
+	this.proxyB = new box2D_collision_B2DistanceProxy();
+	this.sweepA = new box2D_common_math_B2Sweep();
+	this.sweepB = new box2D_common_math_B2Sweep();
+};
+$hxClasses["box2D.collision.B2TOIInput"] = box2D_collision_B2TOIInput;
+box2D_collision_B2TOIInput.__name__ = "box2D.collision.B2TOIInput";
+box2D_collision_B2TOIInput.prototype = {
+	__class__: box2D_collision_B2TOIInput
+};
+var box2D_common_math_B2Transform = function(pos,r) {
+	this.position = new box2D_common_math_B2Vec2();
+	this.R = new box2D_common_math_B2Mat22();
+	if(pos != null) {
+		this.position.setV(pos);
+		this.R.setM(r);
+	}
+};
+$hxClasses["box2D.common.math.B2Transform"] = box2D_common_math_B2Transform;
+box2D_common_math_B2Transform.__name__ = "box2D.common.math.B2Transform";
+box2D_common_math_B2Transform.prototype = {
+	__class__: box2D_common_math_B2Transform
+};
+var box2D_common_math_B2Mat22 = function() {
+	this.col1 = new box2D_common_math_B2Vec2(1.0,0);
+	this.col2 = new box2D_common_math_B2Vec2(0,1.0);
+};
+$hxClasses["box2D.common.math.B2Mat22"] = box2D_common_math_B2Mat22;
+box2D_common_math_B2Mat22.__name__ = "box2D.common.math.B2Mat22";
+box2D_common_math_B2Mat22.prototype = {
+	set: function(angle) {
+		var c = Math.cos(angle);
+		var s = Math.sin(angle);
+		this.col1.x = c;
+		this.col2.x = -s;
+		this.col1.y = s;
+		this.col2.y = c;
+	}
+	,setM: function(m) {
+		this.col1.setV(m.col1);
+		this.col2.setV(m.col2);
+	}
+	,getInverse: function(out) {
+		var a = this.col1.x;
+		var b = this.col2.x;
+		var c = this.col1.y;
+		var d = this.col2.y;
+		var det = a * d - b * c;
+		if(det != 0.0) {
+			det = 1.0 / det;
+		}
+		out.col1.x = det * d;
+		out.col2.x = -det * b;
+		out.col1.y = -det * c;
+		out.col2.y = det * a;
+		return out;
+	}
+	,__class__: box2D_common_math_B2Mat22
+};
+var box2D_collision_B2TimeOfImpact = function() { };
+$hxClasses["box2D.collision.B2TimeOfImpact"] = box2D_collision_B2TimeOfImpact;
+box2D_collision_B2TimeOfImpact.__name__ = "box2D.collision.B2TimeOfImpact";
+box2D_collision_B2TimeOfImpact.timeOfImpact = function(input) {
+	++box2D_collision_B2TimeOfImpact.b2_toiCalls;
+	var proxyA = input.proxyA;
+	var proxyB = input.proxyB;
+	var sweepA = input.sweepA;
+	var sweepB = input.sweepB;
+	box2D_common_B2Settings.b2Assert(sweepA.t0 == sweepB.t0);
+	box2D_common_B2Settings.b2Assert(1.0 - sweepA.t0 > Number.MIN_VALUE);
+	var radius = proxyA.m_radius + proxyB.m_radius;
+	var tolerance = input.tolerance;
+	var alpha = 0.0;
+	var iter = 0;
+	var target = 0.0;
+	box2D_collision_B2TimeOfImpact.s_cache.count = 0;
+	box2D_collision_B2TimeOfImpact.s_distanceInput.useRadii = false;
+	do {
+		sweepA.getTransform(box2D_collision_B2TimeOfImpact.s_xfA,alpha);
+		sweepB.getTransform(box2D_collision_B2TimeOfImpact.s_xfB,alpha);
+		box2D_collision_B2TimeOfImpact.s_distanceInput.proxyA = proxyA;
+		box2D_collision_B2TimeOfImpact.s_distanceInput.proxyB = proxyB;
+		box2D_collision_B2TimeOfImpact.s_distanceInput.transformA = box2D_collision_B2TimeOfImpact.s_xfA;
+		box2D_collision_B2TimeOfImpact.s_distanceInput.transformB = box2D_collision_B2TimeOfImpact.s_xfB;
+		box2D_collision_B2Distance.distance(box2D_collision_B2TimeOfImpact.s_distanceOutput,box2D_collision_B2TimeOfImpact.s_cache,box2D_collision_B2TimeOfImpact.s_distanceInput);
+		if(box2D_collision_B2TimeOfImpact.s_distanceOutput.distance <= 0.0) {
+			alpha = 1.0;
+			break;
+		}
+		box2D_collision_B2TimeOfImpact.s_fcn.initialize(box2D_collision_B2TimeOfImpact.s_cache,proxyA,box2D_collision_B2TimeOfImpact.s_xfA,proxyB,box2D_collision_B2TimeOfImpact.s_xfB);
+		var separation = box2D_collision_B2TimeOfImpact.s_fcn.evaluate(box2D_collision_B2TimeOfImpact.s_xfA,box2D_collision_B2TimeOfImpact.s_xfB);
+		if(separation <= 0.0) {
+			alpha = 1.0;
+			break;
+		}
+		if(iter == 0) {
+			if(separation > radius) {
+				target = box2D_common_math_B2Math.max(radius - tolerance,0.75 * radius);
+			} else {
+				target = box2D_common_math_B2Math.max(separation - tolerance,0.02 * radius);
+			}
+		}
+		if(separation - target < 0.5 * tolerance) {
+			if(iter == 0) {
+				alpha = 1.0;
+				break;
+			}
+			break;
+		}
+		var newAlpha = alpha;
+		var x1 = alpha;
+		var x2 = 1.0;
+		var f1 = separation;
+		sweepA.getTransform(box2D_collision_B2TimeOfImpact.s_xfA,1.0);
+		sweepB.getTransform(box2D_collision_B2TimeOfImpact.s_xfB,1.0);
+		var f2 = box2D_collision_B2TimeOfImpact.s_fcn.evaluate(box2D_collision_B2TimeOfImpact.s_xfA,box2D_collision_B2TimeOfImpact.s_xfB);
+		if(f2 >= target) {
+			alpha = 1.0;
+			break;
+		}
+		var rootIterCount = 0;
+		do {
+			var x;
+			if((rootIterCount & 1) != 0) {
+				x = x1 + (target - f1) * (x2 - x1) / (f2 - f1);
+			} else {
+				x = 0.5 * (x1 + x2);
+			}
+			sweepA.getTransform(box2D_collision_B2TimeOfImpact.s_xfA,x);
+			sweepB.getTransform(box2D_collision_B2TimeOfImpact.s_xfB,x);
+			var f = box2D_collision_B2TimeOfImpact.s_fcn.evaluate(box2D_collision_B2TimeOfImpact.s_xfA,box2D_collision_B2TimeOfImpact.s_xfB);
+			if(box2D_common_math_B2Math.abs(f - target) < 0.025 * tolerance) {
+				newAlpha = x;
+				break;
+			}
+			if(f > target) {
+				x1 = x;
+				f1 = f;
+			} else {
+				x2 = x;
+				f2 = f;
+			}
+			++rootIterCount;
+			++box2D_collision_B2TimeOfImpact.b2_toiRootIters;
+		} while(rootIterCount != 50);
+		box2D_collision_B2TimeOfImpact.b2_toiMaxRootIters = box2D_common_math_B2Math.max(box2D_collision_B2TimeOfImpact.b2_toiMaxRootIters,rootIterCount) | 0;
+		if(newAlpha < (1.0 + 100.0 * Number.MIN_VALUE) * alpha) {
+			break;
+		}
+		alpha = newAlpha;
+		++iter;
+		++box2D_collision_B2TimeOfImpact.b2_toiIters;
+	} while(iter != 1000);
+	box2D_collision_B2TimeOfImpact.b2_toiMaxIters = box2D_common_math_B2Math.max(box2D_collision_B2TimeOfImpact.b2_toiMaxIters,iter) | 0;
+	return alpha;
+};
+var box2D_collision_B2WorldManifold = function() {
+	this.m_normal = new box2D_common_math_B2Vec2();
+	this.m_points = [];
+	var _g = 0;
+	var _g1 = box2D_common_B2Settings.b2_maxManifoldPoints;
+	while(_g < _g1) this.m_points[_g++] = new box2D_common_math_B2Vec2();
+};
+$hxClasses["box2D.collision.B2WorldManifold"] = box2D_collision_B2WorldManifold;
+box2D_collision_B2WorldManifold.__name__ = "box2D.collision.B2WorldManifold";
+box2D_collision_B2WorldManifold.prototype = {
+	initialize: function(manifold,xfA,radiusA,xfB,radiusB) {
+		if(manifold.m_pointCount == 0) {
+			return;
+		}
+		var tVec;
+		var tMat;
+		var normalX;
+		var normalY;
+		var planePointX;
+		var planePointY;
+		var clipPointX;
+		var clipPointY;
+		switch(manifold.m_type._hx_index) {
+		case 0:
+			tMat = xfA.R;
+			tVec = manifold.m_localPoint;
+			var pointAX = xfA.position.x + tMat.col1.x * tVec.x + tMat.col2.x * tVec.y;
+			var pointAY = xfA.position.y + tMat.col1.y * tVec.x + tMat.col2.y * tVec.y;
+			tMat = xfB.R;
+			tVec = manifold.m_points[0].m_localPoint;
+			var pointBX = xfB.position.x + tMat.col1.x * tVec.x + tMat.col2.x * tVec.y;
+			var pointBY = xfB.position.y + tMat.col1.y * tVec.x + tMat.col2.y * tVec.y;
+			var dX = pointBX - pointAX;
+			var dY = pointBY - pointAY;
+			var d2 = dX * dX + dY * dY;
+			if(d2 > Number.MIN_VALUE * Number.MIN_VALUE) {
+				var d = Math.sqrt(d2);
+				this.m_normal.x = dX / d;
+				this.m_normal.y = dY / d;
+			} else {
+				this.m_normal.x = 1;
+				this.m_normal.y = 0;
+			}
+			this.m_points[0].x = 0.5 * (pointAX + radiusA * this.m_normal.x + (pointBX - radiusB * this.m_normal.x));
+			this.m_points[0].y = 0.5 * (pointAY + radiusA * this.m_normal.y + (pointBY - radiusB * this.m_normal.y));
+			break;
+		case 1:
+			tMat = xfA.R;
+			tVec = manifold.m_localPlaneNormal;
+			normalX = tMat.col1.x * tVec.x + tMat.col2.x * tVec.y;
+			normalY = tMat.col1.y * tVec.x + tMat.col2.y * tVec.y;
+			tMat = xfA.R;
+			tVec = manifold.m_localPoint;
+			planePointX = xfA.position.x + tMat.col1.x * tVec.x + tMat.col2.x * tVec.y;
+			planePointY = xfA.position.y + tMat.col1.y * tVec.x + tMat.col2.y * tVec.y;
+			this.m_normal.x = normalX;
+			this.m_normal.y = normalY;
+			var _g = 0;
+			var _g1 = manifold.m_pointCount;
+			while(_g < _g1) {
+				var i = _g++;
+				tMat = xfB.R;
+				tVec = manifold.m_points[i].m_localPoint;
+				clipPointX = xfB.position.x + tMat.col1.x * tVec.x + tMat.col2.x * tVec.y;
+				clipPointY = xfB.position.y + tMat.col1.y * tVec.x + tMat.col2.y * tVec.y;
+				this.m_points[i].x = clipPointX + 0.5 * (radiusA - (clipPointX - planePointX) * normalX - (clipPointY - planePointY) * normalY - radiusB) * normalX;
+				this.m_points[i].y = clipPointY + 0.5 * (radiusA - (clipPointX - planePointX) * normalX - (clipPointY - planePointY) * normalY - radiusB) * normalY;
+			}
+			break;
+		case 2:
+			tMat = xfB.R;
+			tVec = manifold.m_localPlaneNormal;
+			normalX = tMat.col1.x * tVec.x + tMat.col2.x * tVec.y;
+			normalY = tMat.col1.y * tVec.x + tMat.col2.y * tVec.y;
+			tMat = xfB.R;
+			tVec = manifold.m_localPoint;
+			planePointX = xfB.position.x + tMat.col1.x * tVec.x + tMat.col2.x * tVec.y;
+			planePointY = xfB.position.y + tMat.col1.y * tVec.x + tMat.col2.y * tVec.y;
+			this.m_normal.x = -normalX;
+			this.m_normal.y = -normalY;
+			var _g = 0;
+			var _g1 = manifold.m_pointCount;
+			while(_g < _g1) {
+				var i = _g++;
+				tMat = xfA.R;
+				tVec = manifold.m_points[i].m_localPoint;
+				clipPointX = xfA.position.x + tMat.col1.x * tVec.x + tMat.col2.x * tVec.y;
+				clipPointY = xfA.position.y + tMat.col1.y * tVec.x + tMat.col2.y * tVec.y;
+				this.m_points[i].x = clipPointX + 0.5 * (radiusB - (clipPointX - planePointX) * normalX - (clipPointY - planePointY) * normalY - radiusA) * normalX;
+				this.m_points[i].y = clipPointY + 0.5 * (radiusB - (clipPointX - planePointX) * normalX - (clipPointY - planePointY) * normalY - radiusA) * normalY;
+			}
+			break;
+		}
+	}
+	,__class__: box2D_collision_B2WorldManifold
+};
+var box2D_collision_shapes_B2Shape = function() {
+	this.m_type = 0;
+	this.m_radius = box2D_common_B2Settings.b2_linearSlop;
+};
+$hxClasses["box2D.collision.shapes.B2Shape"] = box2D_collision_shapes_B2Shape;
+box2D_collision_shapes_B2Shape.__name__ = "box2D.collision.shapes.B2Shape";
+box2D_collision_shapes_B2Shape.testOverlap = function(shape1,transform1,shape2,transform2) {
+	var input = new box2D_collision_B2DistanceInput();
+	input.proxyA = new box2D_collision_B2DistanceProxy();
+	input.proxyA.set(shape1);
+	input.proxyB = new box2D_collision_B2DistanceProxy();
+	input.proxyB.set(shape2);
+	input.transformA = transform1;
+	input.transformB = transform2;
+	input.useRadii = true;
+	var simplexCache = new box2D_collision_B2SimplexCache();
+	simplexCache.count = 0;
+	var output = new box2D_collision_B2DistanceOutput();
+	box2D_collision_B2Distance.distance(output,simplexCache,input);
+	return output.distance < 10.0 * Number.MIN_VALUE;
+};
+box2D_collision_shapes_B2Shape.prototype = {
+	getType: function() {
+		return this.m_type;
+	}
+	,computeAABB: function(aabb,xf) {
+	}
+	,__class__: box2D_collision_shapes_B2Shape
+};
+var box2D_collision_shapes_B2CircleShape = function(radius) {
+	if(radius == null) {
+		radius = 0;
+	}
+	box2D_collision_shapes_B2Shape.call(this);
+	this.m_p = new box2D_common_math_B2Vec2();
+	this.m_type = 1;
+	this.m_radius = radius;
+};
+$hxClasses["box2D.collision.shapes.B2CircleShape"] = box2D_collision_shapes_B2CircleShape;
+box2D_collision_shapes_B2CircleShape.__name__ = "box2D.collision.shapes.B2CircleShape";
+box2D_collision_shapes_B2CircleShape.__super__ = box2D_collision_shapes_B2Shape;
+box2D_collision_shapes_B2CircleShape.prototype = $extend(box2D_collision_shapes_B2Shape.prototype,{
+	computeAABB: function(aabb,transform) {
+		var tMat = transform.R;
+		var pX = transform.position.x + (tMat.col1.x * this.m_p.x + tMat.col2.x * this.m_p.y);
+		var pY = transform.position.y + (tMat.col1.y * this.m_p.x + tMat.col2.y * this.m_p.y);
+		aabb.lowerBound.set(pX - this.m_radius,pY - this.m_radius);
+		aabb.upperBound.set(pX + this.m_radius,pY + this.m_radius);
+	}
+	,__class__: box2D_collision_shapes_B2CircleShape
+});
+var box2D_collision_shapes_B2EdgeShape = function(v1,v2) {
+	box2D_collision_shapes_B2Shape.call(this);
+	this.s_supportVec = new box2D_common_math_B2Vec2();
+	this.m_v1 = new box2D_common_math_B2Vec2();
+	this.m_v2 = new box2D_common_math_B2Vec2();
+	this.m_coreV1 = new box2D_common_math_B2Vec2();
+	this.m_coreV2 = new box2D_common_math_B2Vec2();
+	this.m_normal = new box2D_common_math_B2Vec2();
+	this.m_direction = new box2D_common_math_B2Vec2();
+	this.m_cornerDir1 = new box2D_common_math_B2Vec2();
+	this.m_cornerDir2 = new box2D_common_math_B2Vec2();
+	this.m_type = 3;
+	this.m_prevEdge = null;
+	this.m_nextEdge = null;
+	this.m_v1 = v1;
+	this.m_v2 = v2;
+	this.m_direction.set(this.m_v2.x - this.m_v1.x,this.m_v2.y - this.m_v1.y);
+	this.m_length = this.m_direction.normalize();
+	this.m_normal.set(this.m_direction.y,-this.m_direction.x);
+	this.m_coreV1.set(-box2D_common_B2Settings.b2_toiSlop * (this.m_normal.x - this.m_direction.x) + this.m_v1.x,-box2D_common_B2Settings.b2_toiSlop * (this.m_normal.y - this.m_direction.y) + this.m_v1.y);
+	this.m_coreV2.set(-box2D_common_B2Settings.b2_toiSlop * (this.m_normal.x + this.m_direction.x) + this.m_v2.x,-box2D_common_B2Settings.b2_toiSlop * (this.m_normal.y + this.m_direction.y) + this.m_v2.y);
+	this.m_cornerDir1 = this.m_normal;
+	this.m_cornerDir2.set(-this.m_normal.x,-this.m_normal.y);
+};
+$hxClasses["box2D.collision.shapes.B2EdgeShape"] = box2D_collision_shapes_B2EdgeShape;
+box2D_collision_shapes_B2EdgeShape.__name__ = "box2D.collision.shapes.B2EdgeShape";
+box2D_collision_shapes_B2EdgeShape.__super__ = box2D_collision_shapes_B2Shape;
+box2D_collision_shapes_B2EdgeShape.prototype = $extend(box2D_collision_shapes_B2Shape.prototype,{
+	computeAABB: function(aabb,transform) {
+		var tMat = transform.R;
+		var v1X = transform.position.x + (tMat.col1.x * this.m_v1.x + tMat.col2.x * this.m_v1.y);
+		var v1Y = transform.position.y + (tMat.col1.y * this.m_v1.x + tMat.col2.y * this.m_v1.y);
+		var v2X = transform.position.x + (tMat.col1.x * this.m_v2.x + tMat.col2.x * this.m_v2.y);
+		var v2Y = transform.position.y + (tMat.col1.y * this.m_v2.x + tMat.col2.y * this.m_v2.y);
+		if(v1X < v2X) {
+			aabb.lowerBound.x = v1X;
+			aabb.upperBound.x = v2X;
+		} else {
+			aabb.lowerBound.x = v2X;
+			aabb.upperBound.x = v1X;
+		}
+		if(v1Y < v2Y) {
+			aabb.lowerBound.y = v1Y;
+			aabb.upperBound.y = v2Y;
+		} else {
+			aabb.lowerBound.y = v2Y;
+			aabb.upperBound.y = v1Y;
+		}
+	}
+	,__class__: box2D_collision_shapes_B2EdgeShape
+});
+var box2D_collision_shapes_B2PolygonShape = function() {
+	this.m_vertexCount = 0;
+	box2D_collision_shapes_B2Shape.call(this);
+	this.m_type = 2;
+	this.m_centroid = new box2D_common_math_B2Vec2();
+	this.m_vertices = [];
+	this.m_normals = [];
+};
+$hxClasses["box2D.collision.shapes.B2PolygonShape"] = box2D_collision_shapes_B2PolygonShape;
+box2D_collision_shapes_B2PolygonShape.__name__ = "box2D.collision.shapes.B2PolygonShape";
+box2D_collision_shapes_B2PolygonShape.__super__ = box2D_collision_shapes_B2Shape;
+box2D_collision_shapes_B2PolygonShape.prototype = $extend(box2D_collision_shapes_B2Shape.prototype,{
+	computeAABB: function(aabb,xf) {
+		var tMat = xf.R;
+		var tVec = this.m_vertices[0];
+		var lowerX = xf.position.x + (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y);
+		var lowerY = xf.position.y + (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y);
+		var upperX = lowerX;
+		var upperY = lowerY;
+		var _g = 1;
+		var _g1 = this.m_vertexCount;
+		while(_g < _g1) {
+			tVec = this.m_vertices[_g++];
+			var vX = xf.position.x + (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y);
+			var vY = xf.position.y + (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y);
+			if(!(lowerX < vX)) {
+				lowerX = vX;
+			}
+			if(!(lowerY < vY)) {
+				lowerY = vY;
+			}
+			if(!(upperX > vX)) {
+				upperX = vX;
+			}
+			if(!(upperY > vY)) {
+				upperY = vY;
+			}
+		}
+		aabb.lowerBound.x = lowerX - this.m_radius;
+		aabb.lowerBound.y = lowerY - this.m_radius;
+		aabb.upperBound.x = upperX + this.m_radius;
+		aabb.upperBound.y = upperY + this.m_radius;
+	}
+	,__class__: box2D_collision_shapes_B2PolygonShape
+});
+var box2D_common_B2Settings = function() { };
+$hxClasses["box2D.common.B2Settings"] = box2D_common_B2Settings;
+box2D_common_B2Settings.__name__ = "box2D.common.B2Settings";
+box2D_common_B2Settings.b2MixFriction = function(friction1,friction2) {
+	return Math.sqrt(friction1 * friction2);
+};
+box2D_common_B2Settings.b2MixRestitution = function(restitution1,restitution2) {
+	if(restitution1 > restitution2) {
+		return restitution1;
+	} else {
+		return restitution2;
+	}
+};
+box2D_common_B2Settings.b2Assert = function(a) {
+	if(!a) {
+		throw haxe_Exception.thrown("Assertion Failed");
+	}
+};
+var box2D_common_math_B2Math = function() { };
+$hxClasses["box2D.common.math.B2Math"] = box2D_common_math_B2Math;
+box2D_common_math_B2Math.__name__ = "box2D.common.math.B2Math";
+box2D_common_math_B2Math.dot = function(a,b) {
+	return a.x * b.x + a.y * b.y;
+};
+box2D_common_math_B2Math.crossVV = function(a,b) {
+	return a.x * b.y - a.y * b.x;
+};
+box2D_common_math_B2Math.crossVF = function(a,s) {
+	return new box2D_common_math_B2Vec2(s * a.y,-s * a.x);
+};
+box2D_common_math_B2Math.crossFV = function(s,a) {
+	return new box2D_common_math_B2Vec2(-s * a.y,s * a.x);
+};
+box2D_common_math_B2Math.mulMV = function(A,v) {
+	return new box2D_common_math_B2Vec2(A.col1.x * v.x + A.col2.x * v.y,A.col1.y * v.x + A.col2.y * v.y);
+};
+box2D_common_math_B2Math.mulTMV = function(A,v) {
+	return new box2D_common_math_B2Vec2(box2D_common_math_B2Math.dot(v,A.col1),box2D_common_math_B2Math.dot(v,A.col2));
+};
+box2D_common_math_B2Math.mulX = function(T,v) {
+	var a = box2D_common_math_B2Math.mulMV(T.R,v);
+	a.x += T.position.x;
+	a.y += T.position.y;
+	return a;
+};
+box2D_common_math_B2Math.subtractVV = function(a,b) {
+	return new box2D_common_math_B2Vec2(a.x - b.x,a.y - b.y);
+};
+box2D_common_math_B2Math.abs = function(a) {
+	if(a > 0.0) {
+		return a;
+	} else {
+		return -a;
+	}
+};
+box2D_common_math_B2Math.min = function(a,b) {
+	if(a < b) {
+		return a;
+	} else {
+		return b;
+	}
+};
+box2D_common_math_B2Math.max = function(a,b) {
+	if(a > b) {
+		return a;
+	} else {
+		return b;
+	}
+};
+box2D_common_math_B2Math.clamp = function(a,low,high) {
+	if(a < low) {
+		return low;
+	} else if(a > high) {
+		return high;
+	} else {
+		return a;
+	}
+};
+var box2D_common_math_B2Sweep = function() {
+	this.localCenter = new box2D_common_math_B2Vec2();
+	this.c0 = new box2D_common_math_B2Vec2();
+	this.c = new box2D_common_math_B2Vec2();
+};
+$hxClasses["box2D.common.math.B2Sweep"] = box2D_common_math_B2Sweep;
+box2D_common_math_B2Sweep.__name__ = "box2D.common.math.B2Sweep";
+box2D_common_math_B2Sweep.prototype = {
+	set: function(other) {
+		this.localCenter.setV(other.localCenter);
+		this.c0.setV(other.c0);
+		this.c.setV(other.c);
+		this.a0 = other.a0;
+		this.a = other.a;
+		this.t0 = other.t0;
+	}
+	,getTransform: function(xf,alpha) {
+		xf.position.x = (1.0 - alpha) * this.c0.x + alpha * this.c.x;
+		xf.position.y = (1.0 - alpha) * this.c0.y + alpha * this.c.y;
+		xf.R.set((1.0 - alpha) * this.a0 + alpha * this.a);
+		var tMat = xf.R;
+		xf.position.x -= tMat.col1.x * this.localCenter.x + tMat.col2.x * this.localCenter.y;
+		xf.position.y -= tMat.col1.y * this.localCenter.x + tMat.col2.y * this.localCenter.y;
+	}
+	,advance: function(t) {
+		if(this.t0 < t && 1.0 - this.t0 > Number.MIN_VALUE) {
+			var alpha = (t - this.t0) / (1.0 - this.t0);
+			this.c0.x = (1.0 - alpha) * this.c0.x + alpha * this.c.x;
+			this.c0.y = (1.0 - alpha) * this.c0.y + alpha * this.c.y;
+			this.a0 = (1.0 - alpha) * this.a0 + alpha * this.a;
+			this.t0 = t;
+		}
+	}
+	,__class__: box2D_common_math_B2Sweep
+};
+var box2D_dynamics_B2Body = function(bd,world) {
+	this.m_xf = new box2D_common_math_B2Transform();
+	this.m_sweep = new box2D_common_math_B2Sweep();
+	this.m_linearVelocity = new box2D_common_math_B2Vec2();
+	this.m_force = new box2D_common_math_B2Vec2();
+	this.m_flags = 0;
+	if(bd.bullet) {
+		this.m_flags |= box2D_dynamics_B2Body.e_bulletFlag;
+	}
+	if(bd.fixedRotation) {
+		this.m_flags |= box2D_dynamics_B2Body.e_fixedRotationFlag;
+	}
+	if(bd.allowSleep) {
+		this.m_flags |= box2D_dynamics_B2Body.e_allowSleepFlag;
+	}
+	if(bd.awake) {
+		this.m_flags |= box2D_dynamics_B2Body.e_awakeFlag;
+	}
+	if(bd.active) {
+		this.m_flags |= box2D_dynamics_B2Body.e_activeFlag;
+	}
+	this.m_world = world;
+	this.m_xf.position.setV(bd.position);
+	this.m_xf.R.set(bd.angle);
+	this.m_sweep.localCenter.setZero();
+	this.m_sweep.t0 = 1.0;
+	this.m_sweep.a0 = this.m_sweep.a = bd.angle;
+	var tMat = this.m_xf.R;
+	var tVec = this.m_sweep.localCenter;
+	this.m_sweep.c.x = tMat.col1.x * tVec.x + tMat.col2.x * tVec.y;
+	this.m_sweep.c.y = tMat.col1.y * tVec.x + tMat.col2.y * tVec.y;
+	this.m_sweep.c.x += this.m_xf.position.x;
+	this.m_sweep.c.y += this.m_xf.position.y;
+	this.m_sweep.c0.setV(this.m_sweep.c);
+	this.m_jointList = null;
+	this.m_controllerList = null;
+	this.m_contactList = null;
+	this.m_controllerCount = 0;
+	this.m_prev = null;
+	this.m_next = null;
+	this.m_linearVelocity.setV(bd.linearVelocity);
+	this.m_angularVelocity = bd.angularVelocity;
+	this.m_linearDamping = bd.linearDamping;
+	this.m_angularDamping = bd.angularDamping;
+	this.m_gravityScale = bd.gravityScale;
+	this.m_force.set(0.0,0.0);
+	this.m_torque = 0.0;
+	this.m_sleepTime = 0.0;
+	this.m_type = bd.type;
+	if(this.m_type == 2) {
+		this.m_mass = 1.0;
+		this.m_invMass = 1.0;
+	} else {
+		this.m_mass = 0.0;
+		this.m_invMass = 0.0;
+	}
+	this.m_I = 0.0;
+	this.m_invI = 0.0;
+	this.m_inertiaScale = bd.inertiaScale;
+	this.m_userData = bd.userData;
+	this.m_fixtureList = null;
+	this.m_fixtureCount = 0;
+};
+$hxClasses["box2D.dynamics.B2Body"] = box2D_dynamics_B2Body;
+box2D_dynamics_B2Body.__name__ = "box2D.dynamics.B2Body";
+box2D_dynamics_B2Body.prototype = {
+	getTransform: function() {
+		return this.m_xf;
+	}
+	,getType: function() {
+		return this.m_type;
+	}
+	,isBullet: function() {
+		return (this.m_flags & box2D_dynamics_B2Body.e_bulletFlag) == box2D_dynamics_B2Body.e_bulletFlag;
+	}
+	,setAwake: function(flag) {
+		if(flag) {
+			this.m_flags |= box2D_dynamics_B2Body.e_awakeFlag;
+			this.m_sleepTime = 0.0;
+		} else {
+			this.m_flags &= ~box2D_dynamics_B2Body.e_awakeFlag;
+			this.m_sleepTime = 0.0;
+			this.m_linearVelocity.setZero();
+			this.m_angularVelocity = 0.0;
+			this.m_force.setZero();
+			this.m_torque = 0.0;
+		}
+	}
+	,isAwake: function() {
+		return (this.m_flags & box2D_dynamics_B2Body.e_awakeFlag) == box2D_dynamics_B2Body.e_awakeFlag;
+	}
+	,isActive: function() {
+		return (this.m_flags & box2D_dynamics_B2Body.e_activeFlag) == box2D_dynamics_B2Body.e_activeFlag;
+	}
+	,getContactList: function() {
+		return this.m_contactList;
+	}
+	,synchronizeFixtures: function() {
+		var xf1 = box2D_dynamics_B2Body.s_xf1;
+		xf1.R.set(this.m_sweep.a0);
+		var tMat = xf1.R;
+		var tVec = this.m_sweep.localCenter;
+		xf1.position.x = this.m_sweep.c0.x - (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y);
+		xf1.position.y = this.m_sweep.c0.y - (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y);
+		var broadPhase = this.m_world.m_contactManager.m_broadPhase;
+		var f = this.m_fixtureList;
+		while(f != null) {
+			f.synchronize(broadPhase,xf1,this.m_xf);
+			f = f.m_next;
+		}
+	}
+	,synchronizeTransform: function() {
+		this.m_xf.R.set(this.m_sweep.a);
+		var tMat = this.m_xf.R;
+		var tVec = this.m_sweep.localCenter;
+		this.m_xf.position.x = this.m_sweep.c.x - (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y);
+		this.m_xf.position.y = this.m_sweep.c.y - (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y);
+	}
+	,shouldCollide: function(other) {
+		if(this.m_type != 2 && other.m_type != 2) {
+			return false;
+		}
+		var jn = this.m_jointList;
+		while(jn != null) {
+			if(jn.other == other) {
+				if(jn.joint.m_collideConnected == false) {
+					return false;
+				}
+			}
+			jn = jn.next;
+		}
+		return true;
+	}
+	,advance: function(t) {
+		this.m_sweep.advance(t);
+		this.m_sweep.c.setV(this.m_sweep.c0);
+		this.m_sweep.a = this.m_sweep.a0;
+		this.synchronizeTransform();
+	}
+	,__class__: box2D_dynamics_B2Body
+};
+var box2D_dynamics_B2BodyDef = function() {
+	this.position = new box2D_common_math_B2Vec2();
+	this.linearVelocity = new box2D_common_math_B2Vec2();
+	this.userData = null;
+	this.angle = 0.0;
+	this.angularVelocity = 0.0;
+	this.linearDamping = 0.0;
+	this.angularDamping = 0.0;
+	this.allowSleep = true;
+	this.awake = true;
+	this.fixedRotation = false;
+	this.bullet = false;
+	this.type = 0;
+	this.active = true;
+	this.inertiaScale = 1.0;
+	this.gravityScale = 1.0;
+};
+$hxClasses["box2D.dynamics.B2BodyDef"] = box2D_dynamics_B2BodyDef;
+box2D_dynamics_B2BodyDef.__name__ = "box2D.dynamics.B2BodyDef";
+box2D_dynamics_B2BodyDef.prototype = {
+	__class__: box2D_dynamics_B2BodyDef
+};
+var box2D_dynamics_B2ContactFilter = function() {
+};
+$hxClasses["box2D.dynamics.B2ContactFilter"] = box2D_dynamics_B2ContactFilter;
+box2D_dynamics_B2ContactFilter.__name__ = "box2D.dynamics.B2ContactFilter";
+box2D_dynamics_B2ContactFilter.prototype = {
+	shouldCollide: function(fixtureA,fixtureB) {
+		var filter1 = fixtureA.getFilterData();
+		var filter2 = fixtureB.getFilterData();
+		if(filter1.groupIndex == filter2.groupIndex && filter1.groupIndex != 0) {
+			return filter1.groupIndex > 0;
+		}
+		return (filter1.maskBits & filter2.categoryBits) != 0 && (filter1.categoryBits & filter2.maskBits) != 0;
+	}
+	,__class__: box2D_dynamics_B2ContactFilter
+};
+var box2D_dynamics_B2ContactImpulse = function() {
+	this.normalImpulses = [];
+	this.tangentImpulses = [];
+};
+$hxClasses["box2D.dynamics.B2ContactImpulse"] = box2D_dynamics_B2ContactImpulse;
+box2D_dynamics_B2ContactImpulse.__name__ = "box2D.dynamics.B2ContactImpulse";
+box2D_dynamics_B2ContactImpulse.prototype = {
+	__class__: box2D_dynamics_B2ContactImpulse
+};
+var box2D_dynamics_B2ContactListener = function() {
+};
+$hxClasses["box2D.dynamics.B2ContactListener"] = box2D_dynamics_B2ContactListener;
+box2D_dynamics_B2ContactListener.__name__ = "box2D.dynamics.B2ContactListener";
+box2D_dynamics_B2ContactListener.prototype = {
+	beginContact: function(contact) {
+	}
+	,endContact: function(contact) {
+	}
+	,preSolve: function(contact,oldManifold) {
+	}
+	,postSolve: function(contact,impulse) {
+	}
+	,__class__: box2D_dynamics_B2ContactListener
+};
+var box2D_dynamics_B2ContactManager = function() {
+	this.m_world = null;
+	this.m_contactCount = 0;
+	this.m_contactFilter = box2D_dynamics_B2ContactFilter.b2_defaultFilter;
+	this.m_contactListener = box2D_dynamics_B2ContactListener.b2_defaultListener;
+	this.m_contactFactory = new box2D_dynamics_contacts_B2ContactFactory(this.m_allocator);
+	this.m_broadPhase = new box2D_collision_B2DynamicTreeBroadPhase();
+};
+$hxClasses["box2D.dynamics.B2ContactManager"] = box2D_dynamics_B2ContactManager;
+box2D_dynamics_B2ContactManager.__name__ = "box2D.dynamics.B2ContactManager";
+box2D_dynamics_B2ContactManager.prototype = {
+	addPair: function(proxyUserDataA,proxyUserDataB) {
+		var fixtureA = js_Boot.__cast(proxyUserDataA , box2D_dynamics_B2Fixture);
+		var fixtureB = js_Boot.__cast(proxyUserDataB , box2D_dynamics_B2Fixture);
+		var bodyA = fixtureA.getBody();
+		var bodyB = fixtureB.getBody();
+		if(bodyA == bodyB) {
+			return;
+		}
+		var edge = bodyB.getContactList();
+		while(edge != null) {
+			if(edge.other == bodyA) {
+				var fA = edge.contact.getFixtureA();
+				var fB = edge.contact.getFixtureB();
+				if(fA == fixtureA && fB == fixtureB) {
+					return;
+				}
+				if(fA == fixtureB && fB == fixtureA) {
+					return;
+				}
+			}
+			edge = edge.next;
+		}
+		if(bodyB.shouldCollide(bodyA) == false) {
+			return;
+		}
+		if(this.m_contactFilter.shouldCollide(fixtureA,fixtureB) == false) {
+			return;
+		}
+		var c = this.m_contactFactory.create(fixtureA,fixtureB);
+		fixtureA = c.getFixtureA();
+		fixtureB = c.getFixtureB();
+		bodyA = fixtureA.m_body;
+		bodyB = fixtureB.m_body;
+		c.m_prev = null;
+		c.m_next = this.m_world.m_contactList;
+		if(this.m_world.m_contactList != null) {
+			this.m_world.m_contactList.m_prev = c;
+		}
+		this.m_world.m_contactList = c;
+		c.m_nodeA.contact = c;
+		c.m_nodeA.other = bodyB;
+		c.m_nodeA.prev = null;
+		c.m_nodeA.next = bodyA.m_contactList;
+		if(bodyA.m_contactList != null) {
+			bodyA.m_contactList.prev = c.m_nodeA;
+		}
+		bodyA.m_contactList = c.m_nodeA;
+		c.m_nodeB.contact = c;
+		c.m_nodeB.other = bodyA;
+		c.m_nodeB.prev = null;
+		c.m_nodeB.next = bodyB.m_contactList;
+		if(bodyB.m_contactList != null) {
+			bodyB.m_contactList.prev = c.m_nodeB;
+		}
+		bodyB.m_contactList = c.m_nodeB;
+		++this.m_contactCount;
+	}
+	,findNewContacts: function() {
+		this.m_broadPhase.updatePairs($bind(this,this.addPair));
+	}
+	,destroy: function(c) {
+		var fixtureA = c.getFixtureA();
+		var fixtureB = c.getFixtureB();
+		var bodyA = fixtureA.getBody();
+		var bodyB = fixtureB.getBody();
+		if(c.isTouching()) {
+			this.m_contactListener.endContact(c);
+		}
+		if(c.m_prev != null) {
+			c.m_prev.m_next = c.m_next;
+		}
+		if(c.m_next != null) {
+			c.m_next.m_prev = c.m_prev;
+		}
+		if(c == this.m_world.m_contactList) {
+			this.m_world.m_contactList = c.m_next;
+		}
+		if(c.m_nodeA.prev != null) {
+			c.m_nodeA.prev.next = c.m_nodeA.next;
+		}
+		if(c.m_nodeA.next != null) {
+			c.m_nodeA.next.prev = c.m_nodeA.prev;
+		}
+		if(c.m_nodeA == bodyA.m_contactList) {
+			bodyA.m_contactList = c.m_nodeA.next;
+		}
+		if(c.m_nodeB.prev != null) {
+			c.m_nodeB.prev.next = c.m_nodeB.next;
+		}
+		if(c.m_nodeB.next != null) {
+			c.m_nodeB.next.prev = c.m_nodeB.prev;
+		}
+		if(c.m_nodeB == bodyB.m_contactList) {
+			bodyB.m_contactList = c.m_nodeB.next;
+		}
+		this.m_contactFactory.destroy(c);
+		--this.m_contactCount;
+	}
+	,collide: function() {
+		var c = this.m_world.m_contactList;
+		while(c != null) {
+			var fixtureA = c.getFixtureA();
+			var fixtureB = c.getFixtureB();
+			var bodyA = fixtureA.getBody();
+			var bodyB = fixtureB.getBody();
+			if(bodyA.isAwake() == false && bodyB.isAwake() == false) {
+				c = c.getNext();
+				continue;
+			}
+			if((c.m_flags & box2D_dynamics_contacts_B2Contact.e_filterFlag) != 0) {
+				if(bodyB.shouldCollide(bodyA) == false) {
+					var cNuke = c;
+					c = cNuke.getNext();
+					this.destroy(cNuke);
+					continue;
+				}
+				if(this.m_contactFilter.shouldCollide(fixtureA,fixtureB) == false) {
+					var cNuke1 = c;
+					c = cNuke1.getNext();
+					this.destroy(cNuke1);
+					continue;
+				}
+				c.m_flags &= ~box2D_dynamics_contacts_B2Contact.e_filterFlag;
+			}
+			if(this.m_broadPhase.testOverlap(fixtureA.m_proxy,fixtureB.m_proxy) == false) {
+				var cNuke2 = c;
+				c = cNuke2.getNext();
+				this.destroy(cNuke2);
+				continue;
+			}
+			c.update(this.m_contactListener);
+			c = c.getNext();
+		}
+	}
+	,__class__: box2D_dynamics_B2ContactManager
+};
+var box2D_dynamics_B2DebugDraw = function() { };
+$hxClasses["box2D.dynamics.B2DebugDraw"] = box2D_dynamics_B2DebugDraw;
+box2D_dynamics_B2DebugDraw.__name__ = "box2D.dynamics.B2DebugDraw";
+var box2D_dynamics_B2DestructionListener = function() { };
+$hxClasses["box2D.dynamics.B2DestructionListener"] = box2D_dynamics_B2DestructionListener;
+box2D_dynamics_B2DestructionListener.__name__ = "box2D.dynamics.B2DestructionListener";
+var box2D_dynamics_B2FilterData = function() {
+	this.categoryBits = 1;
+	this.maskBits = 65535;
+	this.groupIndex = 0;
+};
+$hxClasses["box2D.dynamics.B2FilterData"] = box2D_dynamics_B2FilterData;
+box2D_dynamics_B2FilterData.__name__ = "box2D.dynamics.B2FilterData";
+box2D_dynamics_B2FilterData.prototype = {
+	copy: function() {
+		var copy = new box2D_dynamics_B2FilterData();
+		copy.categoryBits = this.categoryBits;
+		copy.maskBits = this.maskBits;
+		copy.groupIndex = this.groupIndex;
+		return copy;
+	}
+	,__class__: box2D_dynamics_B2FilterData
+};
+var box2D_dynamics_B2Fixture = function() {
+	this.m_filter = new box2D_dynamics_B2FilterData();
+	this.m_aabb = new box2D_collision_B2AABB();
+	this.m_userData = null;
+	this.m_body = null;
+	this.m_next = null;
+	this.m_shape = null;
+	this.m_density = 0.0;
+	this.m_friction = 0.0;
+	this.m_restitution = 0.0;
+};
+$hxClasses["box2D.dynamics.B2Fixture"] = box2D_dynamics_B2Fixture;
+box2D_dynamics_B2Fixture.__name__ = "box2D.dynamics.B2Fixture";
+box2D_dynamics_B2Fixture.prototype = {
+	getType: function() {
+		return this.m_shape.getType();
+	}
+	,getShape: function() {
+		return this.m_shape;
+	}
+	,isSensor: function() {
+		return this.m_isSensor;
+	}
+	,getFilterData: function() {
+		return this.m_filter.copy();
+	}
+	,getBody: function() {
+		return this.m_body;
+	}
+	,getFriction: function() {
+		return this.m_friction;
+	}
+	,getRestitution: function() {
+		return this.m_restitution;
+	}
+	,synchronize: function(broadPhase,transform1,transform2) {
+		if(this.m_proxy == null) {
+			return;
+		}
+		var aabb1 = new box2D_collision_B2AABB();
+		var aabb2 = new box2D_collision_B2AABB();
+		this.m_shape.computeAABB(aabb1,transform1);
+		this.m_shape.computeAABB(aabb2,transform2);
+		this.m_aabb.combine(aabb1,aabb2);
+		broadPhase.moveProxy(this.m_proxy,this.m_aabb,box2D_common_math_B2Math.subtractVV(transform2.position,transform1.position));
+	}
+	,__class__: box2D_dynamics_B2Fixture
+};
+var box2D_dynamics_B2FixtureDef = function() {
+	this.filter = new box2D_dynamics_B2FilterData();
+	this.shape = null;
+	this.userData = null;
+	this.friction = 0.2;
+	this.restitution = 0.0;
+	this.density = 0.0;
+	this.filter.categoryBits = 1;
+	this.filter.maskBits = 65535;
+	this.filter.groupIndex = 0;
+	this.isSensor = false;
+};
+$hxClasses["box2D.dynamics.B2FixtureDef"] = box2D_dynamics_B2FixtureDef;
+box2D_dynamics_B2FixtureDef.__name__ = "box2D.dynamics.B2FixtureDef";
+box2D_dynamics_B2FixtureDef.prototype = {
+	__class__: box2D_dynamics_B2FixtureDef
+};
+var box2D_dynamics_B2Island = function() {
+	this.m_jointCapacity = 0;
+	this.m_contactCapacity = 0;
+	this.m_bodyCapacity = 0;
+	this.m_contactCount = 0;
+	this.m_jointCount = 0;
+	this.m_bodyCount = 0;
+	this.m_bodies = [];
+	this.m_contacts = [];
+	this.m_joints = [];
+};
+$hxClasses["box2D.dynamics.B2Island"] = box2D_dynamics_B2Island;
+box2D_dynamics_B2Island.__name__ = "box2D.dynamics.B2Island";
+box2D_dynamics_B2Island.prototype = {
+	initialize: function(bodyCapacity,contactCapacity,jointCapacity,allocator,listener,contactSolver) {
+		this.m_bodyCapacity = bodyCapacity;
+		this.m_contactCapacity = contactCapacity;
+		this.m_jointCapacity = jointCapacity;
+		this.m_bodyCount = 0;
+		this.m_contactCount = 0;
+		this.m_jointCount = 0;
+		this.m_allocator = allocator;
+		this.m_listener = listener;
+		this.m_contactSolver = contactSolver;
+		var _g = this.m_bodies.length;
+		while(_g < bodyCapacity) this.m_bodies[_g++] = null;
+		var _g = this.m_contacts.length;
+		while(_g < contactCapacity) this.m_contacts[_g++] = null;
+		var _g = this.m_joints.length;
+		while(_g < jointCapacity) this.m_joints[_g++] = null;
+	}
+	,clear: function() {
+		this.m_bodyCount = 0;
+		this.m_contactCount = 0;
+		this.m_jointCount = 0;
+	}
+	,solve: function(step,gravity,allowSleep) {
+		var b;
+		var joint;
+		var _g = 0;
+		var _g1 = this.m_bodyCount;
+		while(_g < _g1) {
+			b = this.m_bodies[_g++];
+			if(b.getType() != 2) {
+				continue;
+			}
+			b.m_linearVelocity.x += step.dt * (b.m_gravityScale * gravity.x + b.m_invMass * b.m_force.x);
+			b.m_linearVelocity.y += step.dt * (b.m_gravityScale * gravity.y + b.m_invMass * b.m_force.y);
+			b.m_angularVelocity += step.dt * b.m_invI * b.m_torque;
+			b.m_linearVelocity.multiply(box2D_common_math_B2Math.clamp(1.0 - step.dt * b.m_linearDamping,0.0,1.0));
+			b.m_angularVelocity *= box2D_common_math_B2Math.clamp(1.0 - step.dt * b.m_angularDamping,0.0,1.0);
+		}
+		this.m_contactSolver.initialize(step,this.m_contacts,this.m_contactCount,this.m_allocator);
+		var contactSolver = this.m_contactSolver;
+		contactSolver.initVelocityConstraints(step);
+		var _g = 0;
+		var _g1 = this.m_jointCount;
+		while(_g < _g1) {
+			joint = this.m_joints[_g++];
+			joint.initVelocityConstraints(step);
+		}
+		var _g = 0;
+		var _g1 = step.velocityIterations;
+		while(_g < _g1) {
+			++_g;
+			var _g2 = 0;
+			var _g3 = this.m_jointCount;
+			while(_g2 < _g3) {
+				joint = this.m_joints[_g2++];
+				joint.solveVelocityConstraints(step);
+			}
+			contactSolver.solveVelocityConstraints();
+		}
+		var _g = 0;
+		var _g1 = this.m_jointCount;
+		while(_g < _g1) {
+			joint = this.m_joints[_g++];
+			joint.finalizeVelocityConstraints();
+		}
+		contactSolver.finalizeVelocityConstraints();
+		var _g = 0;
+		var _g1 = this.m_bodyCount;
+		while(_g < _g1) {
+			b = this.m_bodies[_g++];
+			if(b.getType() == 0) {
+				continue;
+			}
+			var translationX = step.dt * b.m_linearVelocity.x;
+			var translationY = step.dt * b.m_linearVelocity.y;
+			if(translationX * translationX + translationY * translationY > box2D_common_B2Settings.b2_maxTranslationSquared) {
+				b.m_linearVelocity.normalize();
+				b.m_linearVelocity.x *= box2D_common_B2Settings.b2_maxTranslation * step.inv_dt;
+				b.m_linearVelocity.y *= box2D_common_B2Settings.b2_maxTranslation * step.inv_dt;
+			}
+			var rotation = step.dt * b.m_angularVelocity;
+			if(rotation * rotation > box2D_common_B2Settings.b2_maxRotationSquared) {
+				if(b.m_angularVelocity < 0.0) {
+					b.m_angularVelocity = -box2D_common_B2Settings.b2_maxRotation * step.inv_dt;
+				} else {
+					b.m_angularVelocity = box2D_common_B2Settings.b2_maxRotation * step.inv_dt;
+				}
+			}
+			b.m_sweep.c0.setV(b.m_sweep.c);
+			b.m_sweep.a0 = b.m_sweep.a;
+			b.m_sweep.c.x += step.dt * b.m_linearVelocity.x;
+			b.m_sweep.c.y += step.dt * b.m_linearVelocity.y;
+			b.m_sweep.a += step.dt * b.m_angularVelocity;
+			b.synchronizeTransform();
+		}
+		var _g = 0;
+		var _g1 = step.positionIterations;
+		while(_g < _g1) {
+			++_g;
+			var contactsOkay = contactSolver.solvePositionConstraints(box2D_common_B2Settings.b2_contactBaumgarte);
+			var jointsOkay = true;
+			var _g2 = 0;
+			var _g3 = this.m_jointCount;
+			while(_g2 < _g3) {
+				joint = this.m_joints[_g2++];
+				var jointOkay = joint.solvePositionConstraints(box2D_common_B2Settings.b2_contactBaumgarte);
+				jointsOkay = jointsOkay && jointOkay;
+			}
+			if(contactsOkay && jointsOkay) {
+				break;
+			}
+		}
+		this.report(contactSolver.m_constraints);
+		if(allowSleep) {
+			var minSleepTime = Number.MAX_VALUE;
+			var linTolSqr = box2D_common_B2Settings.b2_linearSleepTolerance * box2D_common_B2Settings.b2_linearSleepTolerance;
+			var angTolSqr = box2D_common_B2Settings.b2_angularSleepTolerance * box2D_common_B2Settings.b2_angularSleepTolerance;
+			var _g = 0;
+			var _g1 = this.m_bodyCount;
+			while(_g < _g1) {
+				b = this.m_bodies[_g++];
+				if(b.getType() == 0) {
+					continue;
+				}
+				if((b.m_flags & box2D_dynamics_B2Body.e_allowSleepFlag) == 0) {
+					b.m_sleepTime = 0.0;
+					minSleepTime = 0.0;
+				}
+				if((b.m_flags & box2D_dynamics_B2Body.e_allowSleepFlag) == 0 || b.m_angularVelocity * b.m_angularVelocity > angTolSqr || box2D_common_math_B2Math.dot(b.m_linearVelocity,b.m_linearVelocity) > linTolSqr) {
+					b.m_sleepTime = 0.0;
+					minSleepTime = 0.0;
+				} else {
+					b.m_sleepTime += step.dt;
+					minSleepTime = box2D_common_math_B2Math.min(minSleepTime,b.m_sleepTime);
+				}
+			}
+			if(minSleepTime >= box2D_common_B2Settings.b2_timeToSleep) {
+				var _g = 0;
+				var _g1 = this.m_bodyCount;
+				while(_g < _g1) {
+					b = this.m_bodies[_g++];
+					b.setAwake(false);
+				}
+			}
+		}
+	}
+	,solveTOI: function(subStep) {
+		this.m_contactSolver.initialize(subStep,this.m_contacts,this.m_contactCount,this.m_allocator);
+		var contactSolver = this.m_contactSolver;
+		var _g = 0;
+		var _g1 = this.m_jointCount;
+		while(_g < _g1) this.m_joints[_g++].initVelocityConstraints(subStep);
+		var _g = 0;
+		var _g1 = subStep.velocityIterations;
+		while(_g < _g1) {
+			++_g;
+			contactSolver.solveVelocityConstraints();
+			var _g2 = 0;
+			var _g3 = this.m_jointCount;
+			while(_g2 < _g3) this.m_joints[_g2++].solveVelocityConstraints(subStep);
+		}
+		var _g = 0;
+		var _g1 = this.m_bodyCount;
+		while(_g < _g1) {
+			var b = this.m_bodies[_g++];
+			if(b.getType() == 0) {
+				continue;
+			}
+			var translationX = subStep.dt * b.m_linearVelocity.x;
+			var translationY = subStep.dt * b.m_linearVelocity.y;
+			if(translationX * translationX + translationY * translationY > box2D_common_B2Settings.b2_maxTranslationSquared) {
+				b.m_linearVelocity.normalize();
+				b.m_linearVelocity.x *= box2D_common_B2Settings.b2_maxTranslation * subStep.inv_dt;
+				b.m_linearVelocity.y *= box2D_common_B2Settings.b2_maxTranslation * subStep.inv_dt;
+			}
+			var rotation = subStep.dt * b.m_angularVelocity;
+			if(rotation * rotation > box2D_common_B2Settings.b2_maxRotationSquared) {
+				if(b.m_angularVelocity < 0.0) {
+					b.m_angularVelocity = -box2D_common_B2Settings.b2_maxRotation * subStep.inv_dt;
+				} else {
+					b.m_angularVelocity = box2D_common_B2Settings.b2_maxRotation * subStep.inv_dt;
+				}
+			}
+			b.m_sweep.c0.setV(b.m_sweep.c);
+			b.m_sweep.a0 = b.m_sweep.a;
+			b.m_sweep.c.x += subStep.dt * b.m_linearVelocity.x;
+			b.m_sweep.c.y += subStep.dt * b.m_linearVelocity.y;
+			b.m_sweep.a += subStep.dt * b.m_angularVelocity;
+			b.synchronizeTransform();
+		}
+		var _g = 0;
+		var _g1 = subStep.positionIterations;
+		while(_g < _g1) {
+			++_g;
+			var contactsOkay = contactSolver.solvePositionConstraints(0.75);
+			var jointsOkay = true;
+			var _g2 = 0;
+			var _g3 = this.m_jointCount;
+			while(_g2 < _g3) {
+				var jointOkay = this.m_joints[_g2++].solvePositionConstraints(box2D_common_B2Settings.b2_contactBaumgarte);
+				jointsOkay = jointsOkay && jointOkay;
+			}
+			if(contactsOkay && jointsOkay) {
+				break;
+			}
+		}
+		this.report(contactSolver.m_constraints);
+	}
+	,report: function(constraints) {
+		if(this.m_listener == null) {
+			return;
+		}
+		var _g = 0;
+		var _g1 = this.m_contactCount;
+		while(_g < _g1) {
+			var i = _g++;
+			var c = this.m_contacts[i];
+			var cc = constraints[i];
+			var _g2 = 0;
+			var _g3 = cc.pointCount;
+			while(_g2 < _g3) {
+				var j = _g2++;
+				box2D_dynamics_B2Island.s_impulse.normalImpulses[j] = cc.points[j].normalImpulse;
+				box2D_dynamics_B2Island.s_impulse.tangentImpulses[j] = cc.points[j].tangentImpulse;
+			}
+			this.m_listener.postSolve(c,box2D_dynamics_B2Island.s_impulse);
+		}
+	}
+	,addBody: function(body) {
+		body.m_islandIndex = this.m_bodyCount;
+		this.m_bodies[this.m_bodyCount++] = body;
+	}
+	,addContact: function(contact) {
+		this.m_contacts[this.m_contactCount++] = contact;
+	}
+	,addJoint: function(joint) {
+		this.m_joints[this.m_jointCount++] = joint;
+	}
+	,__class__: box2D_dynamics_B2Island
+};
+var box2D_dynamics_B2TimeStep = function() {
+	this.positionIterations = 0;
+	this.velocityIterations = 0;
+	this.dtRatio = 0;
+	this.inv_dt = 0;
+	this.dt = 0;
+};
+$hxClasses["box2D.dynamics.B2TimeStep"] = box2D_dynamics_B2TimeStep;
+box2D_dynamics_B2TimeStep.__name__ = "box2D.dynamics.B2TimeStep";
+box2D_dynamics_B2TimeStep.prototype = {
+	set: function(step) {
+		this.dt = step.dt;
+		this.inv_dt = step.inv_dt;
+		this.positionIterations = step.positionIterations;
+		this.velocityIterations = step.velocityIterations;
+		this.warmStarting = step.warmStarting;
+	}
+	,__class__: box2D_dynamics_B2TimeStep
+};
+var box2D_dynamics_B2World = function(gravity,doSleep) {
+	this.s_stack = [];
+	this.m_contactManager = new box2D_dynamics_B2ContactManager();
+	this.m_contactSolver = new box2D_dynamics_contacts_B2ContactSolver();
+	this.m_island = new box2D_dynamics_B2Island();
+	this.m_destructionListener = null;
+	this.m_debugDraw = null;
+	this.m_bodyList = null;
+	this.m_contactList = null;
+	this.m_jointList = null;
+	this.m_controllerList = null;
+	this.m_bodyCount = 0;
+	this.m_jointCount = 0;
+	this.m_controllerCount = 0;
+	box2D_dynamics_B2World.m_warmStarting = true;
+	box2D_dynamics_B2World.m_continuousPhysics = true;
+	this.m_allowSleep = doSleep;
+	this.m_gravity = gravity;
+	this.m_inv_dt0 = 0.0;
+	this.m_flags = 0;
+	this.m_contactManager.m_world = this;
+	this.m_groundBody = this.createBody(new box2D_dynamics_B2BodyDef());
+};
+$hxClasses["box2D.dynamics.B2World"] = box2D_dynamics_B2World;
+box2D_dynamics_B2World.__name__ = "box2D.dynamics.B2World";
+box2D_dynamics_B2World.prototype = {
+	createBody: function(def) {
+		if(this.isLocked() == true) {
+			return null;
+		}
+		var b = new box2D_dynamics_B2Body(def,this);
+		b.m_prev = null;
+		b.m_next = this.m_bodyList;
+		if(this.m_bodyList != null) {
+			this.m_bodyList.m_prev = b;
+		}
+		this.m_bodyList = b;
+		++this.m_bodyCount;
+		return b;
+	}
+	,step: function(dt,velocityIterations,positionIterations) {
+		if((this.m_flags & box2D_dynamics_B2World.e_newFixture) != 0) {
+			this.m_contactManager.findNewContacts();
+			this.m_flags &= ~box2D_dynamics_B2World.e_newFixture;
+		}
+		this.m_flags |= box2D_dynamics_B2World.e_locked;
+		var step = box2D_dynamics_B2World.s_timestep2;
+		step.dt = dt;
+		step.velocityIterations = velocityIterations;
+		step.positionIterations = positionIterations;
+		if(dt > 0.0) {
+			step.inv_dt = 1.0 / dt;
+		} else {
+			step.inv_dt = 0.0;
+		}
+		step.dtRatio = this.m_inv_dt0 * dt;
+		step.warmStarting = box2D_dynamics_B2World.m_warmStarting;
+		this.m_contactManager.collide();
+		if(step.dt > 0.0) {
+			this.solve(step);
+		}
+		if(box2D_dynamics_B2World.m_continuousPhysics && step.dt > 0.0) {
+			this.solveTOI(step);
+		}
+		if(step.dt > 0.0) {
+			this.m_inv_dt0 = step.inv_dt;
+		}
+		this.m_flags &= ~box2D_dynamics_B2World.e_locked;
+	}
+	,clearForces: function() {
+		var body = this.m_bodyList;
+		while(body != null) {
+			body.m_force.setZero();
+			body.m_torque = 0.0;
+			body = body.m_next;
+		}
+	}
+	,isLocked: function() {
+		return (this.m_flags & box2D_dynamics_B2World.e_locked) > 0;
+	}
+	,solve: function(step) {
+		var controller = this.m_controllerList;
+		while(controller != null) {
+			controller.step(step);
+			controller = controller.m_next;
+		}
+		var island = this.m_island;
+		island.initialize(this.m_bodyCount,this.m_contactManager.m_contactCount,this.m_jointCount,null,this.m_contactManager.m_contactListener,this.m_contactSolver);
+		var b = this.m_bodyList;
+		while(b != null) {
+			b.m_flags &= ~box2D_dynamics_B2Body.e_islandFlag;
+			b = b.m_next;
+		}
+		var c = this.m_contactList;
+		while(c != null) {
+			c.m_flags &= ~box2D_dynamics_contacts_B2Contact.e_islandFlag;
+			c = c.m_next;
+		}
+		var j = this.m_jointList;
+		while(j != null) {
+			j.m_islandFlag = false;
+			j = j.m_next;
+		}
+		var stack = this.s_stack;
+		var seed = this.m_bodyList;
+		while(seed != null) {
+			if((seed.m_flags & box2D_dynamics_B2Body.e_islandFlag) != 0) {
+				seed = seed.m_next;
+				continue;
+			}
+			if(seed.isAwake() == false || seed.isActive() == false) {
+				seed = seed.m_next;
+				continue;
+			}
+			if(seed.getType() == 0) {
+				seed = seed.m_next;
+				continue;
+			}
+			island.clear();
+			var stackCount = 0;
+			stackCount = 1;
+			stack[0] = seed;
+			seed.m_flags |= box2D_dynamics_B2Body.e_islandFlag;
+			while(stackCount > 0) {
+				b = stack[--stackCount];
+				island.addBody(b);
+				if(b.isAwake() == false) {
+					b.setAwake(true);
+				}
+				if(b.getType() == 0) {
+					continue;
+				}
+				var other;
+				var ce = b.m_contactList;
+				while(ce != null) {
+					if((ce.contact.m_flags & box2D_dynamics_contacts_B2Contact.e_islandFlag) != 0) {
+						ce = ce.next;
+						continue;
+					}
+					if(ce.contact.isSensor() == true || ce.contact.isEnabled() == false || ce.contact.isTouching() == false) {
+						ce = ce.next;
+						continue;
+					}
+					island.addContact(ce.contact);
+					ce.contact.m_flags |= box2D_dynamics_contacts_B2Contact.e_islandFlag;
+					other = ce.other;
+					if((other.m_flags & box2D_dynamics_B2Body.e_islandFlag) != 0) {
+						ce = ce.next;
+						continue;
+					}
+					stack[stackCount++] = other;
+					other.m_flags |= box2D_dynamics_B2Body.e_islandFlag;
+					ce = ce.next;
+				}
+				var jn = b.m_jointList;
+				while(jn != null) {
+					if(jn.joint.m_islandFlag == true) {
+						jn = jn.next;
+						continue;
+					}
+					other = jn.other;
+					if(other.isActive() == false) {
+						jn = jn.next;
+						continue;
+					}
+					island.addJoint(jn.joint);
+					jn.joint.m_islandFlag = true;
+					if((other.m_flags & box2D_dynamics_B2Body.e_islandFlag) != 0) {
+						jn = jn.next;
+						continue;
+					}
+					stack[stackCount++] = other;
+					other.m_flags |= box2D_dynamics_B2Body.e_islandFlag;
+					jn = jn.next;
+				}
+			}
+			island.solve(step,this.m_gravity,this.m_allowSleep);
+			var _g = 0;
+			var _g1 = island.m_bodyCount;
+			while(_g < _g1) {
+				b = island.m_bodies[_g++];
+				if(b.getType() == 0) {
+					b.m_flags &= ~box2D_dynamics_B2Body.e_islandFlag;
+				}
+			}
+			seed = seed.m_next;
+		}
+		var _g = 0;
+		var _g1 = stack.length;
+		while(_g < _g1) {
+			var i = _g++;
+			if(stack[i] == null) {
+				break;
+			}
+			stack[i] = null;
+		}
+		b = this.m_bodyList;
+		while(b != null) {
+			if(b.isAwake() == false || b.isActive() == false) {
+				b = b.m_next;
+				continue;
+			}
+			if(b.getType() == 0) {
+				b = b.m_next;
+				continue;
+			}
+			b.synchronizeFixtures();
+			b = b.m_next;
+		}
+		this.m_contactManager.findNewContacts();
+	}
+	,solveTOI: function(step) {
+		var fA;
+		var fB;
+		var bA;
+		var bB;
+		var cEdge;
+		var island = this.m_island;
+		island.initialize(this.m_bodyCount,box2D_common_B2Settings.b2_maxTOIContactsPerIsland,box2D_common_B2Settings.b2_maxTOIJointsPerIsland,null,this.m_contactManager.m_contactListener,this.m_contactSolver);
+		var queue = box2D_dynamics_B2World.s_queue;
+		var b = this.m_bodyList;
+		while(b != null) {
+			b.m_flags &= ~box2D_dynamics_B2Body.e_islandFlag;
+			b.m_sweep.t0 = 0.0;
+			b = b.m_next;
+		}
+		var c = this.m_contactList;
+		while(c != null) {
+			c.m_flags &= ~(box2D_dynamics_contacts_B2Contact.e_toiFlag | box2D_dynamics_contacts_B2Contact.e_islandFlag);
+			c = c.m_next;
+		}
+		var j = this.m_jointList;
+		while(j != null) {
+			j.m_islandFlag = false;
+			j = j.m_next;
+		}
+		while(true) {
+			var minContact = null;
+			var minTOI = 1.0;
+			c = this.m_contactList;
+			while(c != null) {
+				if(c.isSensor() == true || c.isEnabled() == false || c.isContinuous() == false) {
+					c = c.m_next;
+					continue;
+				}
+				var toi = 1.0;
+				if((c.m_flags & box2D_dynamics_contacts_B2Contact.e_toiFlag) != 0) {
+					toi = c.m_toi;
+				} else {
+					fA = c.m_fixtureA;
+					fB = c.m_fixtureB;
+					bA = fA.m_body;
+					bB = fB.m_body;
+					if((bA.getType() != 2 || bA.isAwake() == false) && (bB.getType() != 2 || bB.isAwake() == false)) {
+						c = c.m_next;
+						continue;
+					}
+					var t0 = bA.m_sweep.t0;
+					if(bA.m_sweep.t0 < bB.m_sweep.t0) {
+						t0 = bB.m_sweep.t0;
+						bA.m_sweep.advance(t0);
+					} else if(bB.m_sweep.t0 < bA.m_sweep.t0) {
+						t0 = bA.m_sweep.t0;
+						bB.m_sweep.advance(t0);
+					}
+					toi = c.computeTOI(bA.m_sweep,bB.m_sweep);
+					box2D_common_B2Settings.b2Assert(0.0 <= toi && toi <= 1.0);
+					if(toi > 0.0 && toi < 1.0) {
+						toi = (1.0 - toi) * t0 + toi;
+						if(toi > 1) {
+							toi = 1;
+						}
+					}
+					c.m_toi = toi;
+					c.m_flags |= box2D_dynamics_contacts_B2Contact.e_toiFlag;
+				}
+				if(Number.MIN_VALUE < toi && toi < minTOI) {
+					minContact = c;
+					minTOI = toi;
+				}
+				c = c.m_next;
+			}
+			if(minContact == null || 1.0 - 100.0 * Number.MIN_VALUE < minTOI) {
+				break;
+			}
+			fA = minContact.m_fixtureA;
+			fB = minContact.m_fixtureB;
+			bA = fA.m_body;
+			bB = fB.m_body;
+			box2D_dynamics_B2World.s_backupA.set(bA.m_sweep);
+			box2D_dynamics_B2World.s_backupB.set(bB.m_sweep);
+			bA.advance(minTOI);
+			bB.advance(minTOI);
+			minContact.update(this.m_contactManager.m_contactListener);
+			minContact.m_flags &= ~box2D_dynamics_contacts_B2Contact.e_toiFlag;
+			if(minContact.isSensor() == true || minContact.isEnabled() == false) {
+				bA.m_sweep.set(box2D_dynamics_B2World.s_backupA);
+				bB.m_sweep.set(box2D_dynamics_B2World.s_backupB);
+				bA.synchronizeTransform();
+				bB.synchronizeTransform();
+				continue;
+			}
+			if(minContact.isTouching() == false) {
+				continue;
+			}
+			var seed = bA;
+			if(seed.getType() != 2) {
+				seed = bB;
+			}
+			island.clear();
+			var queueStart = 0;
+			var queueSize = 0;
+			queueSize = 1;
+			queue[0] = seed;
+			seed.m_flags |= box2D_dynamics_B2Body.e_islandFlag;
+			while(queueSize > 0) {
+				b = queue[queueStart++];
+				--queueSize;
+				island.addBody(b);
+				if(b.isAwake() == false) {
+					b.setAwake(true);
+				}
+				if(b.getType() != 2) {
+					continue;
+				}
+				cEdge = b.m_contactList;
+				var other;
+				while(cEdge != null) {
+					if(island.m_contactCount == island.m_contactCapacity) {
+						cEdge = cEdge.next;
+						break;
+					}
+					if((cEdge.contact.m_flags & box2D_dynamics_contacts_B2Contact.e_islandFlag) != 0) {
+						cEdge = cEdge.next;
+						continue;
+					}
+					if(cEdge.contact.isSensor() == true || cEdge.contact.isEnabled() == false || cEdge.contact.isTouching() == false) {
+						cEdge = cEdge.next;
+						continue;
+					}
+					island.addContact(cEdge.contact);
+					cEdge.contact.m_flags |= box2D_dynamics_contacts_B2Contact.e_islandFlag;
+					other = cEdge.other;
+					if((other.m_flags & box2D_dynamics_B2Body.e_islandFlag) != 0) {
+						cEdge = cEdge.next;
+						continue;
+					}
+					if(other.getType() != 0) {
+						other.advance(minTOI);
+						other.setAwake(true);
+					}
+					queue[queueStart + queueSize] = other;
+					++queueSize;
+					other.m_flags |= box2D_dynamics_B2Body.e_islandFlag;
+					cEdge = cEdge.next;
+				}
+				var jEdge = b.m_jointList;
+				while(jEdge != null) {
+					if(island.m_jointCount == island.m_jointCapacity) {
+						jEdge = jEdge.next;
+						continue;
+					}
+					if(jEdge.joint.m_islandFlag == true) {
+						jEdge = jEdge.next;
+						continue;
+					}
+					other = jEdge.other;
+					if(other.isActive() == false) {
+						jEdge = jEdge.next;
+						continue;
+					}
+					island.addJoint(jEdge.joint);
+					jEdge.joint.m_islandFlag = true;
+					if((other.m_flags & box2D_dynamics_B2Body.e_islandFlag) != 0) {
+						jEdge = jEdge.next;
+						continue;
+					}
+					if(other.getType() != 0) {
+						other.advance(minTOI);
+						other.setAwake(true);
+					}
+					queue[queueStart + queueSize] = other;
+					++queueSize;
+					other.m_flags |= box2D_dynamics_B2Body.e_islandFlag;
+					jEdge = jEdge.next;
+				}
+			}
+			var subStep = box2D_dynamics_B2World.s_timestep;
+			subStep.warmStarting = false;
+			subStep.dt = (1.0 - minTOI) * step.dt;
+			subStep.inv_dt = 1.0 / subStep.dt;
+			subStep.dtRatio = 0.0;
+			subStep.velocityIterations = step.velocityIterations;
+			subStep.positionIterations = step.positionIterations;
+			island.solveTOI(subStep);
+			var _g = 0;
+			var _g1 = island.m_bodyCount;
+			while(_g < _g1) {
+				b = island.m_bodies[_g++];
+				b.m_flags &= ~box2D_dynamics_B2Body.e_islandFlag;
+				if(b.isAwake() == false) {
+					continue;
+				}
+				if(b.getType() != 2) {
+					continue;
+				}
+				b.synchronizeFixtures();
+				cEdge = b.m_contactList;
+				while(cEdge != null) {
+					cEdge.contact.m_flags &= ~box2D_dynamics_contacts_B2Contact.e_toiFlag;
+					cEdge = cEdge.next;
+				}
+			}
+			var _g2 = 0;
+			var _g3 = island.m_contactCount;
+			while(_g2 < _g3) {
+				c = island.m_contacts[_g2++];
+				c.m_flags &= ~(box2D_dynamics_contacts_B2Contact.e_toiFlag | box2D_dynamics_contacts_B2Contact.e_islandFlag);
+			}
+			var _g4 = 0;
+			var _g5 = island.m_jointCount;
+			while(_g4 < _g5) {
+				j = island.m_joints[_g4++];
+				j.m_islandFlag = false;
+			}
+			this.m_contactManager.findNewContacts();
+		}
+	}
+	,__class__: box2D_dynamics_B2World
+};
+var box2D_dynamics_contacts_B2Contact = function() {
+	this.m_toi = 0;
+	this.m_flags = 0;
+	this.m_nodeA = new box2D_dynamics_contacts_B2ContactEdge();
+	this.m_nodeB = new box2D_dynamics_contacts_B2ContactEdge();
+	this.m_manifold = new box2D_collision_B2Manifold();
+	this.m_oldManifold = new box2D_collision_B2Manifold();
+};
+$hxClasses["box2D.dynamics.contacts.B2Contact"] = box2D_dynamics_contacts_B2Contact;
+box2D_dynamics_contacts_B2Contact.__name__ = "box2D.dynamics.contacts.B2Contact";
+box2D_dynamics_contacts_B2Contact.prototype = {
+	getManifold: function() {
+		return this.m_manifold;
+	}
+	,isTouching: function() {
+		return (this.m_flags & box2D_dynamics_contacts_B2Contact.e_touchingFlag) == box2D_dynamics_contacts_B2Contact.e_touchingFlag;
+	}
+	,isContinuous: function() {
+		return (this.m_flags & box2D_dynamics_contacts_B2Contact.e_continuousFlag) == box2D_dynamics_contacts_B2Contact.e_continuousFlag;
+	}
+	,isSensor: function() {
+		return (this.m_flags & box2D_dynamics_contacts_B2Contact.e_sensorFlag) == box2D_dynamics_contacts_B2Contact.e_sensorFlag;
+	}
+	,isEnabled: function() {
+		return (this.m_flags & box2D_dynamics_contacts_B2Contact.e_enabledFlag) == box2D_dynamics_contacts_B2Contact.e_enabledFlag;
+	}
+	,getNext: function() {
+		return this.m_next;
+	}
+	,getFixtureA: function() {
+		return this.m_fixtureA;
+	}
+	,getFixtureB: function() {
+		return this.m_fixtureB;
+	}
+	,reset: function(fixtureA,fixtureB) {
+		this.m_flags = box2D_dynamics_contacts_B2Contact.e_enabledFlag;
+		if(fixtureA == null || fixtureB == null) {
+			this.m_fixtureA = null;
+			this.m_fixtureB = null;
+			return;
+		}
+		if(fixtureA.isSensor() || fixtureB.isSensor()) {
+			this.m_flags |= box2D_dynamics_contacts_B2Contact.e_sensorFlag;
+		}
+		var bodyA = fixtureA.getBody();
+		var bodyB = fixtureB.getBody();
+		if(bodyA.getType() != 2 || bodyA.isBullet() || bodyB.getType() != 2 || bodyB.isBullet()) {
+			this.m_flags |= box2D_dynamics_contacts_B2Contact.e_continuousFlag;
+		}
+		this.m_fixtureA = fixtureA;
+		this.m_fixtureB = fixtureB;
+		this.m_manifold.m_pointCount = 0;
+		this.m_prev = null;
+		this.m_next = null;
+		this.m_nodeA.contact = null;
+		this.m_nodeA.prev = null;
+		this.m_nodeA.next = null;
+		this.m_nodeA.other = null;
+		this.m_nodeB.contact = null;
+		this.m_nodeB.prev = null;
+		this.m_nodeB.next = null;
+		this.m_nodeB.other = null;
+	}
+	,update: function(listener) {
+		var tManifold = this.m_oldManifold;
+		this.m_oldManifold = this.m_manifold;
+		this.m_manifold = tManifold;
+		this.m_flags |= box2D_dynamics_contacts_B2Contact.e_enabledFlag;
+		var touching = false;
+		var wasTouching = (this.m_flags & box2D_dynamics_contacts_B2Contact.e_touchingFlag) == box2D_dynamics_contacts_B2Contact.e_touchingFlag;
+		var bodyA = this.m_fixtureA.m_body;
+		var bodyB = this.m_fixtureB.m_body;
+		var aabbOverlap = this.m_fixtureA.m_aabb.testOverlap(this.m_fixtureB.m_aabb);
+		if((this.m_flags & box2D_dynamics_contacts_B2Contact.e_sensorFlag) != 0) {
+			if(aabbOverlap) {
+				var shapeA = this.m_fixtureA.getShape();
+				var shapeB = this.m_fixtureB.getShape();
+				touching = box2D_collision_shapes_B2Shape.testOverlap(shapeA,bodyA.getTransform(),shapeB,bodyB.getTransform());
+			}
+			this.m_manifold.m_pointCount = 0;
+		} else {
+			if(bodyA.getType() != box2D_dynamics_B2Body.b2_dynamicBody || bodyA.isBullet() || bodyB.getType() != box2D_dynamics_B2Body.b2_dynamicBody || bodyB.isBullet()) {
+				this.m_flags |= box2D_dynamics_contacts_B2Contact.e_continuousFlag;
+			} else {
+				this.m_flags &= ~box2D_dynamics_contacts_B2Contact.e_continuousFlag;
+			}
+			if(aabbOverlap) {
+				this.evaluate();
+				touching = this.m_manifold.m_pointCount > 0;
+				var _g = 0;
+				var _g1 = this.m_manifold.m_pointCount;
+				while(_g < _g1) {
+					var mp2 = this.m_manifold.m_points[_g++];
+					mp2.m_normalImpulse = 0.0;
+					mp2.m_tangentImpulse = 0.0;
+					var id2 = mp2.m_id;
+					var _g2 = 0;
+					var _g3 = this.m_oldManifold.m_pointCount;
+					while(_g2 < _g3) {
+						var mp1 = this.m_oldManifold.m_points[_g2++];
+						if(mp1.m_id.get_key() == id2.get_key()) {
+							mp2.m_normalImpulse = mp1.m_normalImpulse;
+							mp2.m_tangentImpulse = mp1.m_tangentImpulse;
+							break;
+						}
+					}
+				}
+			} else {
+				this.m_manifold.m_pointCount = 0;
+			}
+			if(touching != wasTouching) {
+				bodyA.setAwake(true);
+				bodyB.setAwake(true);
+			}
+		}
+		if(touching) {
+			this.m_flags |= box2D_dynamics_contacts_B2Contact.e_touchingFlag;
+		} else {
+			this.m_flags &= ~box2D_dynamics_contacts_B2Contact.e_touchingFlag;
+		}
+		if(wasTouching == false && touching == true) {
+			listener.beginContact(this);
+		}
+		if(wasTouching == true && touching == false) {
+			listener.endContact(this);
+		}
+		if((this.m_flags & box2D_dynamics_contacts_B2Contact.e_sensorFlag) == 0) {
+			listener.preSolve(this,this.m_oldManifold);
+		}
+	}
+	,evaluate: function() {
+	}
+	,computeTOI: function(sweepA,sweepB) {
+		box2D_dynamics_contacts_B2Contact.s_input.proxyA.set(this.m_fixtureA.getShape());
+		box2D_dynamics_contacts_B2Contact.s_input.proxyB.set(this.m_fixtureB.getShape());
+		box2D_dynamics_contacts_B2Contact.s_input.sweepA = sweepA;
+		box2D_dynamics_contacts_B2Contact.s_input.sweepB = sweepB;
+		box2D_dynamics_contacts_B2Contact.s_input.tolerance = box2D_common_B2Settings.b2_linearSlop;
+		return box2D_collision_B2TimeOfImpact.timeOfImpact(box2D_dynamics_contacts_B2Contact.s_input);
+	}
+	,__class__: box2D_dynamics_contacts_B2Contact
+};
+var box2D_dynamics_contacts_B2CircleContact = function() {
+	box2D_dynamics_contacts_B2Contact.call(this);
+};
+$hxClasses["box2D.dynamics.contacts.B2CircleContact"] = box2D_dynamics_contacts_B2CircleContact;
+box2D_dynamics_contacts_B2CircleContact.__name__ = "box2D.dynamics.contacts.B2CircleContact";
+box2D_dynamics_contacts_B2CircleContact.create = function(allocator) {
+	return new box2D_dynamics_contacts_B2CircleContact();
+};
+box2D_dynamics_contacts_B2CircleContact.destroy = function(contact,allocator) {
+};
+box2D_dynamics_contacts_B2CircleContact.__super__ = box2D_dynamics_contacts_B2Contact;
+box2D_dynamics_contacts_B2CircleContact.prototype = $extend(box2D_dynamics_contacts_B2Contact.prototype,{
+	reset: function(fixtureA,fixtureB) {
+		box2D_dynamics_contacts_B2Contact.prototype.reset.call(this,fixtureA,fixtureB);
+	}
+	,evaluate: function() {
+		var bA = this.m_fixtureA.getBody();
+		var bB = this.m_fixtureB.getBody();
+		box2D_collision_B2Collision.collideCircles(this.m_manifold,js_Boot.__cast(this.m_fixtureA.getShape() , box2D_collision_shapes_B2CircleShape),bA.m_xf,js_Boot.__cast(this.m_fixtureB.getShape() , box2D_collision_shapes_B2CircleShape),bB.m_xf);
+	}
+	,__class__: box2D_dynamics_contacts_B2CircleContact
+});
+var box2D_dynamics_contacts_B2ContactConstraint = function() {
+	this.pointCount = 0;
+	this.restitution = 0;
+	this.friction = 0;
+	this.radius = 0;
+	this.localPlaneNormal = new box2D_common_math_B2Vec2();
+	this.localPoint = new box2D_common_math_B2Vec2();
+	this.normal = new box2D_common_math_B2Vec2();
+	this.normalMass = new box2D_common_math_B2Mat22();
+	this.K = new box2D_common_math_B2Mat22();
+	this.points = [];
+	var _g = 0;
+	var _g1 = box2D_common_B2Settings.b2_maxManifoldPoints;
+	while(_g < _g1) this.points[_g++] = new box2D_dynamics_contacts_B2ContactConstraintPoint();
+};
+$hxClasses["box2D.dynamics.contacts.B2ContactConstraint"] = box2D_dynamics_contacts_B2ContactConstraint;
+box2D_dynamics_contacts_B2ContactConstraint.__name__ = "box2D.dynamics.contacts.B2ContactConstraint";
+box2D_dynamics_contacts_B2ContactConstraint.prototype = {
+	__class__: box2D_dynamics_contacts_B2ContactConstraint
+};
+var box2D_dynamics_contacts_B2ContactConstraintPoint = function() {
+	this.localPoint = new box2D_common_math_B2Vec2();
+	this.rA = new box2D_common_math_B2Vec2();
+	this.rB = new box2D_common_math_B2Vec2();
+};
+$hxClasses["box2D.dynamics.contacts.B2ContactConstraintPoint"] = box2D_dynamics_contacts_B2ContactConstraintPoint;
+box2D_dynamics_contacts_B2ContactConstraintPoint.__name__ = "box2D.dynamics.contacts.B2ContactConstraintPoint";
+box2D_dynamics_contacts_B2ContactConstraintPoint.prototype = {
+	__class__: box2D_dynamics_contacts_B2ContactConstraintPoint
+};
+var box2D_dynamics_contacts_B2ContactEdge = function() {
+};
+$hxClasses["box2D.dynamics.contacts.B2ContactEdge"] = box2D_dynamics_contacts_B2ContactEdge;
+box2D_dynamics_contacts_B2ContactEdge.__name__ = "box2D.dynamics.contacts.B2ContactEdge";
+box2D_dynamics_contacts_B2ContactEdge.prototype = {
+	__class__: box2D_dynamics_contacts_B2ContactEdge
+};
+var box2D_dynamics_contacts_B2ContactFactory = function(allocator) {
+	this.m_allocator = allocator;
+	this.initializeRegisters();
+};
+$hxClasses["box2D.dynamics.contacts.B2ContactFactory"] = box2D_dynamics_contacts_B2ContactFactory;
+box2D_dynamics_contacts_B2ContactFactory.__name__ = "box2D.dynamics.contacts.B2ContactFactory";
+box2D_dynamics_contacts_B2ContactFactory.prototype = {
+	addType: function(createFcn,destroyFcn,type1,type2) {
+		this.m_registers[type1][type2].createFcn = createFcn;
+		this.m_registers[type1][type2].destroyFcn = destroyFcn;
+		this.m_registers[type1][type2].primary = true;
+		if(type1 != type2) {
+			this.m_registers[type2][type1].createFcn = createFcn;
+			this.m_registers[type2][type1].destroyFcn = destroyFcn;
+			this.m_registers[type2][type1].primary = false;
+		}
+	}
+	,initializeRegisters: function() {
+		this.m_registers = [];
+		this.m_registers[0] = [];
+		this.m_registers[0][0] = new box2D_dynamics_contacts_B2ContactRegister();
+		this.m_registers[0][1] = new box2D_dynamics_contacts_B2ContactRegister();
+		this.m_registers[0][2] = new box2D_dynamics_contacts_B2ContactRegister();
+		this.m_registers[0][3] = new box2D_dynamics_contacts_B2ContactRegister();
+		this.m_registers[1] = [];
+		this.m_registers[1][0] = new box2D_dynamics_contacts_B2ContactRegister();
+		this.m_registers[1][1] = new box2D_dynamics_contacts_B2ContactRegister();
+		this.m_registers[1][2] = new box2D_dynamics_contacts_B2ContactRegister();
+		this.m_registers[1][3] = new box2D_dynamics_contacts_B2ContactRegister();
+		this.m_registers[2] = [];
+		this.m_registers[2][0] = new box2D_dynamics_contacts_B2ContactRegister();
+		this.m_registers[2][1] = new box2D_dynamics_contacts_B2ContactRegister();
+		this.m_registers[2][2] = new box2D_dynamics_contacts_B2ContactRegister();
+		this.m_registers[2][3] = new box2D_dynamics_contacts_B2ContactRegister();
+		this.m_registers[3] = [];
+		this.m_registers[3][0] = new box2D_dynamics_contacts_B2ContactRegister();
+		this.m_registers[3][1] = new box2D_dynamics_contacts_B2ContactRegister();
+		this.m_registers[3][2] = new box2D_dynamics_contacts_B2ContactRegister();
+		this.m_registers[3][3] = new box2D_dynamics_contacts_B2ContactRegister();
+		this.addType(box2D_dynamics_contacts_B2CircleContact.create,box2D_dynamics_contacts_B2CircleContact.destroy,1,1);
+		this.addType(box2D_dynamics_contacts_B2PolyAndCircleContact.create,box2D_dynamics_contacts_B2PolyAndCircleContact.destroy,2,1);
+		this.addType(box2D_dynamics_contacts_B2PolygonContact.create,box2D_dynamics_contacts_B2PolygonContact.destroy,2,2);
+		this.addType(box2D_dynamics_contacts_B2EdgeAndCircleContact.create,box2D_dynamics_contacts_B2EdgeAndCircleContact.destroy,3,1);
+		this.addType(box2D_dynamics_contacts_B2PolyAndEdgeContact.create,box2D_dynamics_contacts_B2PolyAndEdgeContact.destroy,2,3);
+	}
+	,create: function(fixtureA,fixtureB) {
+		var type1 = fixtureA.getType();
+		var type2 = fixtureB.getType();
+		var reg = this.m_registers[type1][type2];
+		if(!reg.primary) {
+			reg = this.m_registers[type2][type1];
+			var tempfixture = fixtureB;
+			fixtureB = fixtureA;
+			fixtureA = tempfixture;
+		}
+		var c;
+		if(reg.pool != null) {
+			c = reg.pool;
+			reg.pool = c.m_next;
+			reg.poolCount--;
+			c.reset(fixtureA,fixtureB);
+			return c;
+		}
+		var createFcn = reg.createFcn;
+		if(createFcn != null) {
+			c = createFcn(this.m_allocator);
+			c.reset(fixtureA,fixtureB);
+			return c;
+		} else {
+			return null;
+		}
+	}
+	,destroy: function(contact) {
+		if(contact.m_manifold.m_pointCount > 0) {
+			contact.m_fixtureA.m_body.setAwake(true);
+			contact.m_fixtureB.m_body.setAwake(true);
+		}
+		var type1 = contact.m_fixtureA.getType();
+		var type2 = contact.m_fixtureB.getType();
+		var reg = this.m_registers[type1][type2];
+		reg.poolCount++;
+		contact.m_next = reg.pool;
+		reg.pool = contact;
+		contact.reset();
+		reg.destroyFcn(contact,this.m_allocator);
+	}
+	,__class__: box2D_dynamics_contacts_B2ContactFactory
+};
+var box2D_dynamics_contacts_B2ContactRegister = function() {
+	this.poolCount = 0;
+};
+$hxClasses["box2D.dynamics.contacts.B2ContactRegister"] = box2D_dynamics_contacts_B2ContactRegister;
+box2D_dynamics_contacts_B2ContactRegister.__name__ = "box2D.dynamics.contacts.B2ContactRegister";
+box2D_dynamics_contacts_B2ContactRegister.prototype = {
+	__class__: box2D_dynamics_contacts_B2ContactRegister
+};
+var box2D_dynamics_contacts_B2PositionSolverManifold = function() {
+	this.m_normal = new box2D_common_math_B2Vec2();
+	this.m_separations = [];
+	this.m_points = [];
+	var _g = 0;
+	var _g1 = box2D_common_B2Settings.b2_maxManifoldPoints;
+	while(_g < _g1) this.m_points[_g++] = new box2D_common_math_B2Vec2();
+};
+$hxClasses["box2D.dynamics.contacts.B2PositionSolverManifold"] = box2D_dynamics_contacts_B2PositionSolverManifold;
+box2D_dynamics_contacts_B2PositionSolverManifold.__name__ = "box2D.dynamics.contacts.B2PositionSolverManifold";
+box2D_dynamics_contacts_B2PositionSolverManifold.prototype = {
+	initialize: function(cc) {
+		box2D_common_B2Settings.b2Assert(cc.pointCount > 0);
+		var clipPointX;
+		var clipPointY;
+		var tMat;
+		var tVec;
+		var planePointX;
+		var planePointY;
+		switch(cc.type._hx_index) {
+		case 0:
+			tMat = cc.bodyA.m_xf.R;
+			tVec = cc.localPoint;
+			var pointAX = cc.bodyA.m_xf.position.x + (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y);
+			var pointAY = cc.bodyA.m_xf.position.y + (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y);
+			tMat = cc.bodyB.m_xf.R;
+			tVec = cc.points[0].localPoint;
+			var pointBX = cc.bodyB.m_xf.position.x + (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y);
+			var pointBY = cc.bodyB.m_xf.position.y + (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y);
+			var dX = pointBX - pointAX;
+			var dY = pointBY - pointAY;
+			var d2 = dX * dX + dY * dY;
+			if(d2 > Number.MIN_VALUE * Number.MIN_VALUE) {
+				var d = Math.sqrt(d2);
+				this.m_normal.x = dX / d;
+				this.m_normal.y = dY / d;
+			} else {
+				this.m_normal.x = 1.0;
+				this.m_normal.y = 0.0;
+			}
+			this.m_points[0].x = 0.5 * (pointAX + pointBX);
+			this.m_points[0].y = 0.5 * (pointAY + pointBY);
+			this.m_separations[0] = dX * this.m_normal.x + dY * this.m_normal.y - cc.radius;
+			break;
+		case 1:
+			tMat = cc.bodyA.m_xf.R;
+			tVec = cc.localPlaneNormal;
+			this.m_normal.x = tMat.col1.x * tVec.x + tMat.col2.x * tVec.y;
+			this.m_normal.y = tMat.col1.y * tVec.x + tMat.col2.y * tVec.y;
+			tMat = cc.bodyA.m_xf.R;
+			tVec = cc.localPoint;
+			planePointX = cc.bodyA.m_xf.position.x + (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y);
+			planePointY = cc.bodyA.m_xf.position.y + (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y);
+			tMat = cc.bodyB.m_xf.R;
+			var _g = 0;
+			var _g1 = cc.pointCount;
+			while(_g < _g1) {
+				var i = _g++;
+				tVec = cc.points[i].localPoint;
+				clipPointX = cc.bodyB.m_xf.position.x + (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y);
+				clipPointY = cc.bodyB.m_xf.position.y + (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y);
+				this.m_separations[i] = (clipPointX - planePointX) * this.m_normal.x + (clipPointY - planePointY) * this.m_normal.y - cc.radius;
+				this.m_points[i].x = clipPointX;
+				this.m_points[i].y = clipPointY;
+			}
+			break;
+		case 2:
+			tMat = cc.bodyB.m_xf.R;
+			tVec = cc.localPlaneNormal;
+			this.m_normal.x = tMat.col1.x * tVec.x + tMat.col2.x * tVec.y;
+			this.m_normal.y = tMat.col1.y * tVec.x + tMat.col2.y * tVec.y;
+			tMat = cc.bodyB.m_xf.R;
+			tVec = cc.localPoint;
+			planePointX = cc.bodyB.m_xf.position.x + (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y);
+			planePointY = cc.bodyB.m_xf.position.y + (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y);
+			tMat = cc.bodyA.m_xf.R;
+			var _g = 0;
+			var _g1 = cc.pointCount;
+			while(_g < _g1) {
+				var i = _g++;
+				tVec = cc.points[i].localPoint;
+				clipPointX = cc.bodyA.m_xf.position.x + (tMat.col1.x * tVec.x + tMat.col2.x * tVec.y);
+				clipPointY = cc.bodyA.m_xf.position.y + (tMat.col1.y * tVec.x + tMat.col2.y * tVec.y);
+				this.m_separations[i] = (clipPointX - planePointX) * this.m_normal.x + (clipPointY - planePointY) * this.m_normal.y - cc.radius;
+				this.m_points[i].set(clipPointX,clipPointY);
+			}
+			this.m_normal.x *= -1;
+			this.m_normal.y *= -1;
+			break;
+		}
+	}
+	,__class__: box2D_dynamics_contacts_B2PositionSolverManifold
+};
+var box2D_dynamics_contacts_B2ContactSolver = function() {
+	this.m_constraintCount = 0;
+	this.m_step = new box2D_dynamics_B2TimeStep();
+	this.m_constraints = [];
+};
+$hxClasses["box2D.dynamics.contacts.B2ContactSolver"] = box2D_dynamics_contacts_B2ContactSolver;
+box2D_dynamics_contacts_B2ContactSolver.__name__ = "box2D.dynamics.contacts.B2ContactSolver";
+box2D_dynamics_contacts_B2ContactSolver.prototype = {
+	initialize: function(step,contacts,contactCount,allocator) {
+		var contact;
+		this.m_step.set(step);
+		this.m_allocator = allocator;
+		this.m_constraintCount = contactCount;
+		while(this.m_constraints.length < this.m_constraintCount) this.m_constraints[this.m_constraints.length] = new box2D_dynamics_contacts_B2ContactConstraint();
+		var _g = 0;
+		while(_g < contactCount) {
+			var i = _g++;
+			contact = contacts[i];
+			var fixtureA = contact.m_fixtureA;
+			var fixtureB = contact.m_fixtureB;
+			var radiusA = fixtureA.m_shape.m_radius;
+			var radiusB = fixtureB.m_shape.m_radius;
+			var bodyA = fixtureA.m_body;
+			var bodyB = fixtureB.m_body;
+			var manifold = contact.getManifold();
+			var friction = box2D_common_B2Settings.b2MixFriction(fixtureA.getFriction(),fixtureB.getFriction());
+			var restitution = box2D_common_B2Settings.b2MixRestitution(fixtureA.getRestitution(),fixtureB.getRestitution());
+			var vAX = bodyA.m_linearVelocity.x;
+			var vAY = bodyA.m_linearVelocity.y;
+			var vBX = bodyB.m_linearVelocity.x;
+			var vBY = bodyB.m_linearVelocity.y;
+			var wA = bodyA.m_angularVelocity;
+			var wB = bodyB.m_angularVelocity;
+			box2D_common_B2Settings.b2Assert(manifold.m_pointCount > 0);
+			box2D_dynamics_contacts_B2ContactSolver.s_worldManifold.initialize(manifold,bodyA.m_xf,radiusA,bodyB.m_xf,radiusB);
+			var normalX = box2D_dynamics_contacts_B2ContactSolver.s_worldManifold.m_normal.x;
+			var normalY = box2D_dynamics_contacts_B2ContactSolver.s_worldManifold.m_normal.y;
+			var cc = this.m_constraints[i];
+			cc.bodyA = bodyA;
+			cc.bodyB = bodyB;
+			cc.manifold = manifold;
+			cc.normal.x = normalX;
+			cc.normal.y = normalY;
+			cc.pointCount = manifold.m_pointCount;
+			cc.friction = friction;
+			cc.restitution = restitution;
+			cc.localPlaneNormal.x = manifold.m_localPlaneNormal.x;
+			cc.localPlaneNormal.y = manifold.m_localPlaneNormal.y;
+			cc.localPoint.x = manifold.m_localPoint.x;
+			cc.localPoint.y = manifold.m_localPoint.y;
+			cc.radius = radiusA + radiusB;
+			cc.type = manifold.m_type;
+			var _g1 = 0;
+			var _g2 = cc.pointCount;
+			while(_g1 < _g2) {
+				var k = _g1++;
+				var cp = manifold.m_points[k];
+				var ccp = cc.points[k];
+				ccp.normalImpulse = cp.m_normalImpulse;
+				ccp.tangentImpulse = cp.m_tangentImpulse;
+				ccp.localPoint.setV(cp.m_localPoint);
+				var rAX = ccp.rA.x = box2D_dynamics_contacts_B2ContactSolver.s_worldManifold.m_points[k].x - bodyA.m_sweep.c.x;
+				var rAY = ccp.rA.y = box2D_dynamics_contacts_B2ContactSolver.s_worldManifold.m_points[k].y - bodyA.m_sweep.c.y;
+				var rBX = ccp.rB.x = box2D_dynamics_contacts_B2ContactSolver.s_worldManifold.m_points[k].x - bodyB.m_sweep.c.x;
+				var rBY = ccp.rB.y = box2D_dynamics_contacts_B2ContactSolver.s_worldManifold.m_points[k].y - bodyB.m_sweep.c.y;
+				var rnA = rAX * normalY - rAY * normalX;
+				var rnB = rBX * normalY - rBY * normalX;
+				rnA *= rnA;
+				rnB *= rnB;
+				ccp.normalMass = 1.0 / (bodyA.m_invMass + bodyB.m_invMass + bodyA.m_invI * rnA + bodyB.m_invI * rnB);
+				var kEqualized = bodyA.m_mass * bodyA.m_invMass + bodyB.m_mass * bodyB.m_invMass;
+				kEqualized += bodyA.m_mass * bodyA.m_invI * rnA + bodyB.m_mass * bodyB.m_invI * rnB;
+				ccp.equalizedMass = 1.0 / kEqualized;
+				var tangentY = -normalX;
+				var rtA = rAX * tangentY - rAY * normalY;
+				var rtB = rBX * tangentY - rBY * normalY;
+				rtA *= rtA;
+				rtB *= rtB;
+				ccp.tangentMass = 1.0 / (bodyA.m_invMass + bodyB.m_invMass + bodyA.m_invI * rtA + bodyB.m_invI * rtB);
+				ccp.velocityBias = 0.0;
+				var vRel = cc.normal.x * (vBX + -wB * rBY - vAX - -wA * rAY) + cc.normal.y * (vBY + wB * rBX - vAY - wA * rAX);
+				if(vRel < -box2D_common_B2Settings.b2_velocityThreshold) {
+					ccp.velocityBias += -cc.restitution * vRel;
+				}
+			}
+			if(cc.pointCount == 2) {
+				var ccp1 = cc.points[0];
+				var ccp2 = cc.points[1];
+				var invMassA = bodyA.m_invMass;
+				var invIA = bodyA.m_invI;
+				var invMassB = bodyB.m_invMass;
+				var invIB = bodyB.m_invI;
+				var rn1A = ccp1.rA.x * normalY - ccp1.rA.y * normalX;
+				var rn1B = ccp1.rB.x * normalY - ccp1.rB.y * normalX;
+				var rn2A = ccp2.rA.x * normalY - ccp2.rA.y * normalX;
+				var rn2B = ccp2.rB.x * normalY - ccp2.rB.y * normalX;
+				var k11 = invMassA + invMassB + invIA * rn1A * rn1A + invIB * rn1B * rn1B;
+				var k22 = invMassA + invMassB + invIA * rn2A * rn2A + invIB * rn2B * rn2B;
+				var k12 = invMassA + invMassB + invIA * rn1A * rn2A + invIB * rn1B * rn2B;
+				if(k11 * k11 < 100.0 * (k11 * k22 - k12 * k12)) {
+					cc.K.col1.set(k11,k12);
+					cc.K.col2.set(k12,k22);
+					cc.K.getInverse(cc.normalMass);
+				} else {
+					cc.pointCount = 1;
+				}
+			}
+		}
+	}
+	,initVelocityConstraints: function(step) {
+		var _g = 0;
+		var _g1 = this.m_constraintCount;
+		while(_g < _g1) {
+			var c = this.m_constraints[_g++];
+			var bodyA = c.bodyA;
+			var bodyB = c.bodyB;
+			var invMassA = bodyA.m_invMass;
+			var invIA = bodyA.m_invI;
+			var invMassB = bodyB.m_invMass;
+			var invIB = bodyB.m_invI;
+			var normalX = c.normal.x;
+			var normalY = c.normal.y;
+			var tangentY = -normalX;
+			var tCount;
+			if(step.warmStarting) {
+				tCount = c.pointCount;
+				var _g2 = 0;
+				var _g3 = tCount;
+				while(_g2 < _g3) {
+					var ccp = c.points[_g2++];
+					ccp.normalImpulse *= step.dtRatio;
+					ccp.tangentImpulse *= step.dtRatio;
+					var PX = ccp.normalImpulse * normalX + ccp.tangentImpulse * normalY;
+					var PY = ccp.normalImpulse * normalY + ccp.tangentImpulse * tangentY;
+					bodyA.m_angularVelocity -= invIA * (ccp.rA.x * PY - ccp.rA.y * PX);
+					bodyA.m_linearVelocity.x -= invMassA * PX;
+					bodyA.m_linearVelocity.y -= invMassA * PY;
+					bodyB.m_angularVelocity += invIB * (ccp.rB.x * PY - ccp.rB.y * PX);
+					bodyB.m_linearVelocity.x += invMassB * PX;
+					bodyB.m_linearVelocity.y += invMassB * PY;
+				}
+			} else {
+				tCount = c.pointCount;
+				var _g4 = 0;
+				var _g5 = tCount;
+				while(_g4 < _g5) {
+					var ccp2 = c.points[_g4++];
+					ccp2.normalImpulse = 0.0;
+					ccp2.tangentImpulse = 0.0;
+				}
+			}
+		}
+	}
+	,solveVelocityConstraints: function() {
+		var ccp;
+		var dvX;
+		var dvY;
+		var vn;
+		var vt;
+		var lambda;
+		var maxFriction;
+		var newImpulse;
+		var PX;
+		var PY;
+		var dX;
+		var dY;
+		var P1X;
+		var P1Y;
+		var P2X;
+		var P2Y;
+		var tMat;
+		var _g = 0;
+		var _g1 = this.m_constraintCount;
+		while(_g < _g1) {
+			var c = this.m_constraints[_g++];
+			var bodyA = c.bodyA;
+			var bodyB = c.bodyB;
+			var wA = bodyA.m_angularVelocity;
+			var wB = bodyB.m_angularVelocity;
+			var vA = bodyA.m_linearVelocity;
+			var vB = bodyB.m_linearVelocity;
+			var invMassA = bodyA.m_invMass;
+			var invIA = bodyA.m_invI;
+			var invMassB = bodyB.m_invMass;
+			var invIB = bodyB.m_invI;
+			var normalX = c.normal.x;
+			var normalY = c.normal.y;
+			var tangentY = -normalX;
+			var friction = c.friction;
+			var _g2 = 0;
+			var _g3 = c.pointCount;
+			while(_g2 < _g3) {
+				ccp = c.points[_g2++];
+				dvX = vB.x - wB * ccp.rB.y - vA.x + wA * ccp.rA.y;
+				dvY = vB.y + wB * ccp.rB.x - vA.y - wA * ccp.rA.x;
+				vt = dvX * normalY + dvY * tangentY;
+				lambda = ccp.tangentMass * -vt;
+				maxFriction = friction * ccp.normalImpulse;
+				newImpulse = box2D_common_math_B2Math.clamp(ccp.tangentImpulse + lambda,-maxFriction,maxFriction);
+				lambda = newImpulse - ccp.tangentImpulse;
+				PX = lambda * normalY;
+				PY = lambda * tangentY;
+				vA.x -= invMassA * PX;
+				vA.y -= invMassA * PY;
+				wA -= invIA * (ccp.rA.x * PY - ccp.rA.y * PX);
+				vB.x += invMassB * PX;
+				vB.y += invMassB * PY;
+				wB += invIB * (ccp.rB.x * PY - ccp.rB.y * PX);
+				ccp.tangentImpulse = newImpulse;
+			}
+			if(c.pointCount == 1) {
+				ccp = c.points[0];
+				dvX = vB.x + -wB * ccp.rB.y - vA.x - -wA * ccp.rA.y;
+				dvY = vB.y + wB * ccp.rB.x - vA.y - wA * ccp.rA.x;
+				vn = dvX * normalX + dvY * normalY;
+				lambda = -ccp.normalMass * (vn - ccp.velocityBias);
+				newImpulse = ccp.normalImpulse + lambda;
+				if(!(newImpulse > 0)) {
+					newImpulse = 0.0;
+				}
+				lambda = newImpulse - ccp.normalImpulse;
+				PX = lambda * normalX;
+				PY = lambda * normalY;
+				vA.x -= invMassA * PX;
+				vA.y -= invMassA * PY;
+				wA -= invIA * (ccp.rA.x * PY - ccp.rA.y * PX);
+				vB.x += invMassB * PX;
+				vB.y += invMassB * PY;
+				wB += invIB * (ccp.rB.x * PY - ccp.rB.y * PX);
+				ccp.normalImpulse = newImpulse;
+			} else {
+				var cp1 = c.points[0];
+				var cp2 = c.points[1];
+				var aX = cp1.normalImpulse;
+				var aY = cp2.normalImpulse;
+				var vn1 = (vB.x - wB * cp1.rB.y - vA.x + wA * cp1.rA.y) * normalX + (vB.y + wB * cp1.rB.x - vA.y - wA * cp1.rA.x) * normalY;
+				var vn2 = (vB.x - wB * cp2.rB.y - vA.x + wA * cp2.rA.y) * normalX + (vB.y + wB * cp2.rB.x - vA.y - wA * cp2.rA.x) * normalY;
+				var bX = vn1 - cp1.velocityBias;
+				var bY = vn2 - cp2.velocityBias;
+				tMat = c.K;
+				bX -= tMat.col1.x * aX + tMat.col2.x * aY;
+				bY -= tMat.col1.y * aX + tMat.col2.y * aY;
+				do {
+					tMat = c.normalMass;
+					var xX = -(tMat.col1.x * bX + tMat.col2.x * bY);
+					var xY = -(tMat.col1.y * bX + tMat.col2.y * bY);
+					if(xX >= 0.0 && xY >= 0.0) {
+						dX = xX - aX;
+						dY = xY - aY;
+						P1X = dX * normalX;
+						P1Y = dX * normalY;
+						P2X = dY * normalX;
+						P2Y = dY * normalY;
+						vA.x -= invMassA * (P1X + P2X);
+						vA.y -= invMassA * (P1Y + P2Y);
+						wA -= invIA * (cp1.rA.x * P1Y - cp1.rA.y * P1X + cp2.rA.x * P2Y - cp2.rA.y * P2X);
+						vB.x += invMassB * (P1X + P2X);
+						vB.y += invMassB * (P1Y + P2Y);
+						wB += invIB * (cp1.rB.x * P1Y - cp1.rB.y * P1X + cp2.rB.x * P2Y - cp2.rB.y * P2X);
+						cp1.normalImpulse = xX;
+						cp2.normalImpulse = xY;
+						break;
+					}
+					xX = -cp1.normalMass * bX;
+					xY = 0.0;
+					vn1 = 0.0;
+					vn2 = c.K.col1.y * xX + bY;
+					if(xX >= 0.0 && vn2 >= 0.0) {
+						dX = xX - aX;
+						dY = 0.0 - aY;
+						P1X = dX * normalX;
+						P1Y = dX * normalY;
+						P2X = dY * normalX;
+						P2Y = dY * normalY;
+						vA.x -= invMassA * (P1X + P2X);
+						vA.y -= invMassA * (P1Y + P2Y);
+						wA -= invIA * (cp1.rA.x * P1Y - cp1.rA.y * P1X + cp2.rA.x * P2Y - cp2.rA.y * P2X);
+						vB.x += invMassB * (P1X + P2X);
+						vB.y += invMassB * (P1Y + P2Y);
+						wB += invIB * (cp1.rB.x * P1Y - cp1.rB.y * P1X + cp2.rB.x * P2Y - cp2.rB.y * P2X);
+						cp1.normalImpulse = xX;
+						cp2.normalImpulse = 0.0;
+						break;
+					}
+					xY = -cp2.normalMass * bY;
+					vn1 = c.K.col2.x * xY + bX;
+					vn2 = 0.0;
+					if(xY >= 0.0 && vn1 >= 0.0) {
+						dX = 0.0 - aX;
+						dY = xY - aY;
+						P1X = dX * normalX;
+						P1Y = dX * normalY;
+						P2X = dY * normalX;
+						P2Y = dY * normalY;
+						vA.x -= invMassA * (P1X + P2X);
+						vA.y -= invMassA * (P1Y + P2Y);
+						wA -= invIA * (cp1.rA.x * P1Y - cp1.rA.y * P1X + cp2.rA.x * P2Y - cp2.rA.y * P2X);
+						vB.x += invMassB * (P1X + P2X);
+						vB.y += invMassB * (P1Y + P2Y);
+						wB += invIB * (cp1.rB.x * P1Y - cp1.rB.y * P1X + cp2.rB.x * P2Y - cp2.rB.y * P2X);
+						cp1.normalImpulse = 0.0;
+						cp2.normalImpulse = xY;
+						break;
+					}
+					vn1 = bX;
+					vn2 = bY;
+					if(vn1 >= 0.0 && vn2 >= 0.0) {
+						dX = 0.0 - aX;
+						dY = 0.0 - aY;
+						P1X = dX * normalX;
+						P1Y = dX * normalY;
+						P2X = dY * normalX;
+						P2Y = dY * normalY;
+						vA.x -= invMassA * (P1X + P2X);
+						vA.y -= invMassA * (P1Y + P2Y);
+						wA -= invIA * (cp1.rA.x * P1Y - cp1.rA.y * P1X + cp2.rA.x * P2Y - cp2.rA.y * P2X);
+						vB.x += invMassB * (P1X + P2X);
+						vB.y += invMassB * (P1Y + P2Y);
+						wB += invIB * (cp1.rB.x * P1Y - cp1.rB.y * P1X + cp2.rB.x * P2Y - cp2.rB.y * P2X);
+						cp1.normalImpulse = 0.0;
+						cp2.normalImpulse = 0.0;
+						break;
+					}
+				} while(false);
+			}
+			bodyA.m_angularVelocity = wA;
+			bodyB.m_angularVelocity = wB;
+		}
+	}
+	,finalizeVelocityConstraints: function() {
+		var _g = 0;
+		var _g1 = this.m_constraintCount;
+		while(_g < _g1) {
+			var c = this.m_constraints[_g++];
+			var m = c.manifold;
+			var _g2 = 0;
+			var _g3 = c.pointCount;
+			while(_g2 < _g3) {
+				var j = _g2++;
+				var point1 = m.m_points[j];
+				var point2 = c.points[j];
+				point1.m_normalImpulse = point2.normalImpulse;
+				point1.m_tangentImpulse = point2.tangentImpulse;
+			}
+		}
+	}
+	,solvePositionConstraints: function(baumgarte) {
+		var minSeparation = 0.0;
+		var _g = 0;
+		var _g1 = this.m_constraintCount;
+		while(_g < _g1) {
+			var c = this.m_constraints[_g++];
+			var bodyA = c.bodyA;
+			var bodyB = c.bodyB;
+			var invMassA = bodyA.m_mass * bodyA.m_invMass;
+			var invIA = bodyA.m_mass * bodyA.m_invI;
+			var invMassB = bodyB.m_mass * bodyB.m_invMass;
+			var invIB = bodyB.m_mass * bodyB.m_invI;
+			box2D_dynamics_contacts_B2ContactSolver.s_psm.initialize(c);
+			var normal = box2D_dynamics_contacts_B2ContactSolver.s_psm.m_normal;
+			var _g2 = 0;
+			var _g3 = c.pointCount;
+			while(_g2 < _g3) {
+				var j = _g2++;
+				var point = box2D_dynamics_contacts_B2ContactSolver.s_psm.m_points[j];
+				var separation = box2D_dynamics_contacts_B2ContactSolver.s_psm.m_separations[j];
+				var rAX = point.x - bodyA.m_sweep.c.x;
+				var rAY = point.y - bodyA.m_sweep.c.y;
+				var rBX = point.x - bodyB.m_sweep.c.x;
+				var rBY = point.y - bodyB.m_sweep.c.y;
+				if(!(minSeparation < separation)) {
+					minSeparation = separation;
+				}
+				var impulse = -c.points[j].equalizedMass * box2D_common_math_B2Math.clamp(baumgarte * (separation + box2D_common_B2Settings.b2_linearSlop),-box2D_common_B2Settings.b2_maxLinearCorrection,0.0);
+				var PX = impulse * normal.x;
+				var PY = impulse * normal.y;
+				bodyA.m_sweep.c.x -= invMassA * PX;
+				bodyA.m_sweep.c.y -= invMassA * PY;
+				bodyA.m_sweep.a -= invIA * (rAX * PY - rAY * PX);
+				bodyA.synchronizeTransform();
+				bodyB.m_sweep.c.x += invMassB * PX;
+				bodyB.m_sweep.c.y += invMassB * PY;
+				bodyB.m_sweep.a += invIB * (rBX * PY - rBY * PX);
+				bodyB.synchronizeTransform();
+			}
+		}
+		return minSeparation > -1.5 * box2D_common_B2Settings.b2_linearSlop;
+	}
+	,__class__: box2D_dynamics_contacts_B2ContactSolver
+};
+var box2D_dynamics_contacts_B2EdgeAndCircleContact = function() {
+	box2D_dynamics_contacts_B2Contact.call(this);
+};
+$hxClasses["box2D.dynamics.contacts.B2EdgeAndCircleContact"] = box2D_dynamics_contacts_B2EdgeAndCircleContact;
+box2D_dynamics_contacts_B2EdgeAndCircleContact.__name__ = "box2D.dynamics.contacts.B2EdgeAndCircleContact";
+box2D_dynamics_contacts_B2EdgeAndCircleContact.create = function(allocator) {
+	return new box2D_dynamics_contacts_B2EdgeAndCircleContact();
+};
+box2D_dynamics_contacts_B2EdgeAndCircleContact.destroy = function(contact,allocator) {
+};
+box2D_dynamics_contacts_B2EdgeAndCircleContact.__super__ = box2D_dynamics_contacts_B2Contact;
+box2D_dynamics_contacts_B2EdgeAndCircleContact.prototype = $extend(box2D_dynamics_contacts_B2Contact.prototype,{
+	reset: function(fixtureA,fixtureB) {
+		box2D_dynamics_contacts_B2Contact.prototype.reset.call(this,fixtureA,fixtureB);
+		box2D_common_B2Settings.b2Assert(fixtureA == null || fixtureA.getType() == 3);
+		box2D_common_B2Settings.b2Assert(fixtureB == null || fixtureA.getType() == 1);
+	}
+	,evaluate: function() {
+		var bA = this.m_fixtureA.getBody();
+		var bB = this.m_fixtureB.getBody();
+		this.b2CollideEdgeAndCircle(this.m_manifold,js_Boot.__cast(this.m_fixtureA.getShape() , box2D_collision_shapes_B2EdgeShape),bA.m_xf,js_Boot.__cast(this.m_fixtureB.getShape() , box2D_collision_shapes_B2CircleShape),bB.m_xf);
+	}
+	,b2CollideEdgeAndCircle: function(manifold,edge,xf1,circle,xf2) {
+	}
+	,__class__: box2D_dynamics_contacts_B2EdgeAndCircleContact
+});
+var box2D_dynamics_contacts_B2PolyAndCircleContact = function() {
+	box2D_dynamics_contacts_B2Contact.call(this);
+};
+$hxClasses["box2D.dynamics.contacts.B2PolyAndCircleContact"] = box2D_dynamics_contacts_B2PolyAndCircleContact;
+box2D_dynamics_contacts_B2PolyAndCircleContact.__name__ = "box2D.dynamics.contacts.B2PolyAndCircleContact";
+box2D_dynamics_contacts_B2PolyAndCircleContact.create = function(allocator) {
+	return new box2D_dynamics_contacts_B2PolyAndCircleContact();
+};
+box2D_dynamics_contacts_B2PolyAndCircleContact.destroy = function(contact,allocator) {
+};
+box2D_dynamics_contacts_B2PolyAndCircleContact.__super__ = box2D_dynamics_contacts_B2Contact;
+box2D_dynamics_contacts_B2PolyAndCircleContact.prototype = $extend(box2D_dynamics_contacts_B2Contact.prototype,{
+	reset: function(fixtureA,fixtureB) {
+		box2D_dynamics_contacts_B2Contact.prototype.reset.call(this,fixtureA,fixtureB);
+		box2D_common_B2Settings.b2Assert(fixtureA == null || fixtureA.getType() == 2);
+		box2D_common_B2Settings.b2Assert(fixtureB == null || fixtureB.getType() == 1);
+	}
+	,evaluate: function() {
+		var bA = this.m_fixtureA.m_body;
+		var bB = this.m_fixtureB.m_body;
+		box2D_collision_B2Collision.collidePolygonAndCircle(this.m_manifold,js_Boot.__cast(this.m_fixtureA.getShape() , box2D_collision_shapes_B2PolygonShape),bA.m_xf,js_Boot.__cast(this.m_fixtureB.getShape() , box2D_collision_shapes_B2CircleShape),bB.m_xf);
+	}
+	,__class__: box2D_dynamics_contacts_B2PolyAndCircleContact
+});
+var box2D_dynamics_contacts_B2PolyAndEdgeContact = function() {
+	box2D_dynamics_contacts_B2Contact.call(this);
+};
+$hxClasses["box2D.dynamics.contacts.B2PolyAndEdgeContact"] = box2D_dynamics_contacts_B2PolyAndEdgeContact;
+box2D_dynamics_contacts_B2PolyAndEdgeContact.__name__ = "box2D.dynamics.contacts.B2PolyAndEdgeContact";
+box2D_dynamics_contacts_B2PolyAndEdgeContact.create = function(allocator) {
+	return new box2D_dynamics_contacts_B2PolyAndEdgeContact();
+};
+box2D_dynamics_contacts_B2PolyAndEdgeContact.destroy = function(contact,allocator) {
+};
+box2D_dynamics_contacts_B2PolyAndEdgeContact.__super__ = box2D_dynamics_contacts_B2Contact;
+box2D_dynamics_contacts_B2PolyAndEdgeContact.prototype = $extend(box2D_dynamics_contacts_B2Contact.prototype,{
+	reset: function(fixtureA,fixtureB) {
+		box2D_dynamics_contacts_B2Contact.prototype.reset.call(this,fixtureA,fixtureB);
+		box2D_common_B2Settings.b2Assert(fixtureA == null || fixtureA.getType() == 2);
+		box2D_common_B2Settings.b2Assert(fixtureB == null || fixtureB.getType() == 3);
+	}
+	,evaluate: function() {
+		var bA = this.m_fixtureA.getBody();
+		var bB = this.m_fixtureB.getBody();
+		this.b2CollidePolyAndEdge(this.m_manifold,js_Boot.__cast(this.m_fixtureA.getShape() , box2D_collision_shapes_B2PolygonShape),bA.m_xf,js_Boot.__cast(this.m_fixtureB.getShape() , box2D_collision_shapes_B2EdgeShape),bB.m_xf);
+	}
+	,b2CollidePolyAndEdge: function(manifold,polygon,xf1,edge,xf2) {
+	}
+	,__class__: box2D_dynamics_contacts_B2PolyAndEdgeContact
+});
+var box2D_dynamics_contacts_B2PolygonContact = function() {
+	box2D_dynamics_contacts_B2Contact.call(this);
+};
+$hxClasses["box2D.dynamics.contacts.B2PolygonContact"] = box2D_dynamics_contacts_B2PolygonContact;
+box2D_dynamics_contacts_B2PolygonContact.__name__ = "box2D.dynamics.contacts.B2PolygonContact";
+box2D_dynamics_contacts_B2PolygonContact.create = function(allocator) {
+	return new box2D_dynamics_contacts_B2PolygonContact();
+};
+box2D_dynamics_contacts_B2PolygonContact.destroy = function(contact,allocator) {
+};
+box2D_dynamics_contacts_B2PolygonContact.__super__ = box2D_dynamics_contacts_B2Contact;
+box2D_dynamics_contacts_B2PolygonContact.prototype = $extend(box2D_dynamics_contacts_B2Contact.prototype,{
+	reset: function(fixtureA,fixtureB) {
+		box2D_dynamics_contacts_B2Contact.prototype.reset.call(this,fixtureA,fixtureB);
+	}
+	,evaluate: function() {
+		var bA = this.m_fixtureA.getBody();
+		var bB = this.m_fixtureB.getBody();
+		box2D_collision_B2Collision.collidePolygons(this.m_manifold,js_Boot.__cast(this.m_fixtureA.getShape() , box2D_collision_shapes_B2PolygonShape),bA.m_xf,js_Boot.__cast(this.m_fixtureB.getShape() , box2D_collision_shapes_B2PolygonShape),bB.m_xf);
+	}
+	,__class__: box2D_dynamics_contacts_B2PolygonContact
+});
+var box2D_dynamics_controllers_B2Controller = function() {
+};
+$hxClasses["box2D.dynamics.controllers.B2Controller"] = box2D_dynamics_controllers_B2Controller;
+box2D_dynamics_controllers_B2Controller.__name__ = "box2D.dynamics.controllers.B2Controller";
+box2D_dynamics_controllers_B2Controller.prototype = {
+	step: function(step) {
+	}
+	,__class__: box2D_dynamics_controllers_B2Controller
+};
+var box2D_dynamics_controllers_B2ControllerEdge = function() { };
+$hxClasses["box2D.dynamics.controllers.B2ControllerEdge"] = box2D_dynamics_controllers_B2ControllerEdge;
+box2D_dynamics_controllers_B2ControllerEdge.__name__ = "box2D.dynamics.controllers.B2ControllerEdge";
+var box2D_dynamics_joints_B2Joint = function(def) {
+	this.m_edgeA = new box2D_dynamics_joints_B2JointEdge();
+	this.m_edgeB = new box2D_dynamics_joints_B2JointEdge();
+	this.m_localCenterA = new box2D_common_math_B2Vec2();
+	this.m_localCenterB = new box2D_common_math_B2Vec2();
+	box2D_common_B2Settings.b2Assert(def.bodyA != def.bodyB);
+	this.m_type = def.type;
+	this.m_prev = null;
+	this.m_next = null;
+	this.m_bodyA = def.bodyA;
+	this.m_bodyB = def.bodyB;
+	this.m_collideConnected = def.collideConnected;
+	this.m_islandFlag = false;
+	this.m_userData = def.userData;
+};
+$hxClasses["box2D.dynamics.joints.B2Joint"] = box2D_dynamics_joints_B2Joint;
+box2D_dynamics_joints_B2Joint.__name__ = "box2D.dynamics.joints.B2Joint";
+box2D_dynamics_joints_B2Joint.prototype = {
+	initVelocityConstraints: function(step) {
+	}
+	,solveVelocityConstraints: function(step) {
+	}
+	,finalizeVelocityConstraints: function() {
+	}
+	,solvePositionConstraints: function(baumgarte) {
+		return false;
+	}
+	,__class__: box2D_dynamics_joints_B2Joint
+};
+var box2D_dynamics_joints_B2JointDef = function() {
+	this.type = 0;
+	this.userData = null;
+	this.bodyA = null;
+	this.bodyB = null;
+	this.collideConnected = false;
+};
+$hxClasses["box2D.dynamics.joints.B2JointDef"] = box2D_dynamics_joints_B2JointDef;
+box2D_dynamics_joints_B2JointDef.__name__ = "box2D.dynamics.joints.B2JointDef";
+box2D_dynamics_joints_B2JointDef.prototype = {
+	__class__: box2D_dynamics_joints_B2JointDef
+};
+var box2D_dynamics_joints_B2JointEdge = function() {
+};
+$hxClasses["box2D.dynamics.joints.B2JointEdge"] = box2D_dynamics_joints_B2JointEdge;
+box2D_dynamics_joints_B2JointEdge.__name__ = "box2D.dynamics.joints.B2JointEdge";
+box2D_dynamics_joints_B2JointEdge.prototype = {
+	__class__: box2D_dynamics_joints_B2JointEdge
 };
 var format_gif_Block = $hxEnums["format.gif.Block"] = { __ename__:"format.gif.Block",__constructs__:null
 	,BFrame: ($_=function(frame) { return {_hx_index:0,frame:frame,__enum__:"format.gif.Block",toString:$estr}; },$_._hx_name="BFrame",$_.__params__ = ["frame"],$_)
@@ -7022,1458 +10858,6 @@ h2d_Camera.prototype = {
 	}
 	,__class__: h2d_Camera
 };
-var h2d_FlowAlign = $hxEnums["h2d.FlowAlign"] = { __ename__:"h2d.FlowAlign",__constructs__:null
-	,Top: {_hx_name:"Top",_hx_index:0,__enum__:"h2d.FlowAlign",toString:$estr}
-	,Left: {_hx_name:"Left",_hx_index:1,__enum__:"h2d.FlowAlign",toString:$estr}
-	,Right: {_hx_name:"Right",_hx_index:2,__enum__:"h2d.FlowAlign",toString:$estr}
-	,Middle: {_hx_name:"Middle",_hx_index:3,__enum__:"h2d.FlowAlign",toString:$estr}
-	,Bottom: {_hx_name:"Bottom",_hx_index:4,__enum__:"h2d.FlowAlign",toString:$estr}
-};
-h2d_FlowAlign.__constructs__ = [h2d_FlowAlign.Top,h2d_FlowAlign.Left,h2d_FlowAlign.Right,h2d_FlowAlign.Middle,h2d_FlowAlign.Bottom];
-h2d_FlowAlign.__empty_constructs__ = [h2d_FlowAlign.Top,h2d_FlowAlign.Left,h2d_FlowAlign.Right,h2d_FlowAlign.Middle,h2d_FlowAlign.Bottom];
-var h2d_FlowLayout = $hxEnums["h2d.FlowLayout"] = { __ename__:"h2d.FlowLayout",__constructs__:null
-	,Horizontal: {_hx_name:"Horizontal",_hx_index:0,__enum__:"h2d.FlowLayout",toString:$estr}
-	,Vertical: {_hx_name:"Vertical",_hx_index:1,__enum__:"h2d.FlowLayout",toString:$estr}
-	,Stack: {_hx_name:"Stack",_hx_index:2,__enum__:"h2d.FlowLayout",toString:$estr}
-};
-h2d_FlowLayout.__constructs__ = [h2d_FlowLayout.Horizontal,h2d_FlowLayout.Vertical,h2d_FlowLayout.Stack];
-h2d_FlowLayout.__empty_constructs__ = [h2d_FlowLayout.Horizontal,h2d_FlowLayout.Vertical,h2d_FlowLayout.Stack];
-var h2d_FlowOverflow = $hxEnums["h2d.FlowOverflow"] = { __ename__:"h2d.FlowOverflow",__constructs__:null
-	,Expand: {_hx_name:"Expand",_hx_index:0,__enum__:"h2d.FlowOverflow",toString:$estr}
-	,Limit: {_hx_name:"Limit",_hx_index:1,__enum__:"h2d.FlowOverflow",toString:$estr}
-	,Hidden: {_hx_name:"Hidden",_hx_index:2,__enum__:"h2d.FlowOverflow",toString:$estr}
-	,Scroll: {_hx_name:"Scroll",_hx_index:3,__enum__:"h2d.FlowOverflow",toString:$estr}
-};
-h2d_FlowOverflow.__constructs__ = [h2d_FlowOverflow.Expand,h2d_FlowOverflow.Limit,h2d_FlowOverflow.Hidden,h2d_FlowOverflow.Scroll];
-h2d_FlowOverflow.__empty_constructs__ = [h2d_FlowOverflow.Expand,h2d_FlowOverflow.Limit,h2d_FlowOverflow.Hidden,h2d_FlowOverflow.Scroll];
-var h2d_FlowProperties = function(elt) {
-	this.constraint = true;
-	this.lineBreak = false;
-	this.calculatedHeight = 0;
-	this.calculatedWidth = 0;
-	this.offsetY = 0;
-	this.offsetX = 0;
-	this.isAbsolute = false;
-	this.paddingBottom = 0;
-	this.paddingRight = 0;
-	this.paddingTop = 0;
-	this.paddingLeft = 0;
-	this.elt = elt;
-};
-$hxClasses["h2d.FlowProperties"] = h2d_FlowProperties;
-h2d_FlowProperties.__name__ = "h2d.FlowProperties";
-h2d_FlowProperties.prototype = {
-	set_isAbsolute: function(a) {
-		if(a) {
-			this.elt.constraintSize(-1,-1);
-			this.isBreak = false;
-		}
-		return this.isAbsolute = a;
-	}
-	,__class__: h2d_FlowProperties
-	,__properties__: {set_isAbsolute:"set_isAbsolute"}
-};
-var h2d_Flow = function(parent) {
-	this.realMinHeight = -1;
-	this.realMinWidth = -1;
-	this.realMaxHeight = -1;
-	this.realMaxWidth = -1;
-	this.constraintHeight = -1;
-	this.constraintWidth = -1;
-	this.contentHeight = 0.;
-	this.contentWidth = 0.;
-	this.calculatedHeight = 0.;
-	this.calculatedWidth = 0.;
-	this.properties = [];
-	this.scrollPosY = 0.;
-	this.scrollWheelSpeed = 30.;
-	this.fillHeight = false;
-	this.fillWidth = false;
-	this.reverse = false;
-	this.multiline = false;
-	this.isInline = true;
-	this.layout = h2d_FlowLayout.Horizontal;
-	this.borderBottom = 0;
-	this.borderTop = 0;
-	this.borderRight = 0;
-	this.borderLeft = 0;
-	this.verticalSpacing = 0;
-	this.horizontalSpacing = 0;
-	this.paddingBottom = 0;
-	this.paddingTop = 0;
-	this.paddingRight = 0;
-	this.paddingLeft = 0;
-	this.overflow = h2d_FlowOverflow.Expand;
-	this.needReflow = true;
-	this.tmpBounds = new h2d_col_Bounds();
-	h2d_Object.call(this,parent);
-};
-$hxClasses["h2d.Flow"] = h2d_Flow;
-h2d_Flow.__name__ = "h2d.Flow";
-h2d_Flow.__super__ = h2d_Object;
-h2d_Flow.prototype = $extend(h2d_Object.prototype,{
-	getProperties: function(e) {
-		this.set_needReflow(true);
-		return this.properties[this.getChildIndex(e)];
-	}
-	,set_layout: function(v) {
-		if(this.layout == v) {
-			return v;
-		}
-		this.set_needReflow(true);
-		return this.layout = v == null ? h2d_FlowLayout.Horizontal : v;
-	}
-	,set_horizontalAlign: function(v) {
-		if(this.horizontalAlign == v) {
-			return v;
-		}
-		this.set_needReflow(true);
-		return this.horizontalAlign = v;
-	}
-	,set_verticalAlign: function(v) {
-		if(this.verticalAlign == v) {
-			return v;
-		}
-		this.set_needReflow(true);
-		return this.verticalAlign = v;
-	}
-	,set_needReflow: function(v) {
-		if(this.needReflow == v) {
-			return v;
-		}
-		if(v) {
-			if(this.parentContainer != null) {
-				this.parentContainer.contentChanged(this);
-			}
-		}
-		return this.needReflow = v;
-	}
-	,set_scrollPosY: function(v) {
-		if(this.needReflow) {
-			this.reflow();
-		}
-		if(v < 0) {
-			v = 0;
-		}
-		if(v > this.contentHeight - this.calculatedHeight) {
-			v = this.contentHeight - this.calculatedHeight;
-		}
-		if(this.scrollPosY == v) {
-			return v;
-		}
-		var delta = (v | 0) - (this.scrollPosY | 0);
-		var i = 0;
-		var _g = 0;
-		var _g1 = this.children;
-		while(_g < _g1.length) {
-			var c = _g1[_g];
-			++_g;
-			if(this.properties[i++].isAbsolute) {
-				continue;
-			}
-			c.posChanged = true;
-			c.y -= delta;
-		}
-		this.scrollPosY = v;
-		this.updateScrollCursor();
-		return v;
-	}
-	,updateScrollCursor: function() {
-		if(this.scrollBarCursor == null) {
-			return;
-		}
-		var prev = this.needReflow;
-		this.scrollBar.getProperties(this.scrollBarCursor).paddingTop = this.scrollPosY * (this.calculatedHeight - this.scrollBarCursor.minHeight) / (this.contentHeight - this.calculatedHeight) | 0;
-		this.set_needReflow(prev);
-	}
-	,get_outerWidth: function() {
-		if(this.needReflow) {
-			this.reflow();
-		}
-		return Math.ceil(this.calculatedWidth);
-	}
-	,get_outerHeight: function() {
-		if(this.needReflow) {
-			this.reflow();
-		}
-		return Math.ceil(this.calculatedHeight);
-	}
-	,get_innerWidth: function() {
-		if(this.needReflow) {
-			this.reflow();
-		}
-		return Math.ceil(this.calculatedWidth) - (this.paddingLeft + this.paddingRight);
-	}
-	,get_innerHeight: function() {
-		if(this.needReflow) {
-			this.reflow();
-		}
-		return Math.ceil(this.calculatedHeight) - (this.paddingTop + this.paddingBottom);
-	}
-	,set_paddingLeft: function(v) {
-		if(this.paddingLeft == v) {
-			return v;
-		}
-		this.set_needReflow(true);
-		return this.paddingLeft = v;
-	}
-	,set_paddingRight: function(v) {
-		if(this.paddingRight == v) {
-			return v;
-		}
-		this.set_needReflow(true);
-		return this.paddingRight = v;
-	}
-	,set_paddingTop: function(v) {
-		if(this.paddingTop == v) {
-			return v;
-		}
-		this.set_needReflow(true);
-		return this.paddingTop = v;
-	}
-	,set_paddingBottom: function(v) {
-		if(this.paddingBottom == v) {
-			return v;
-		}
-		this.set_needReflow(true);
-		return this.paddingBottom = v;
-	}
-	,set_fillWidth: function(v) {
-		if(this.fillWidth == v) {
-			return v;
-		}
-		this.set_needReflow(true);
-		return this.fillWidth = v;
-	}
-	,set_fillHeight: function(v) {
-		if(this.fillHeight == v) {
-			return v;
-		}
-		this.set_needReflow(true);
-		return this.fillHeight = v;
-	}
-	,constraintSize: function(width,height) {
-		this.constraintWidth = width;
-		this.constraintHeight = height;
-		this.isConstraint = true;
-		this.updateConstraint();
-	}
-	,onHierarchyMoved: function(parentChanged) {
-		h2d_Object.prototype.onHierarchyMoved.call(this,parentChanged);
-		this.isConstraint = false;
-		this.constraintWidth = -1;
-		this.constraintHeight = -1;
-		this.updateConstraint();
-	}
-	,contentChanged: function(s) {
-		while(s.parent != this) s = s.parent;
-		var p = this.getProperties(s);
-		if(p != null && p.isAbsolute) {
-			return;
-		}
-		this.set_needReflow(true);
-		if(this.parentContainer != null) {
-			this.parentContainer.contentChanged(this);
-		}
-	}
-	,addSpacing: function(v) {
-		var last = this.properties.length - 1;
-		while(last >= 0 && this.properties[last].isAbsolute) --last;
-		switch(this.layout._hx_index) {
-		case 0:
-			if(last >= 0) {
-				this.properties[last].paddingRight += v;
-			} else {
-				this.set_paddingLeft(this.paddingLeft + v);
-			}
-			break;
-		case 1:
-			if(last >= 0) {
-				this.properties[last].paddingBottom += v;
-			} else {
-				this.set_paddingTop(this.paddingTop + v);
-			}
-			break;
-		case 2:
-			break;
-		}
-	}
-	,getBoundsRec: function(relativeTo,out,forSize) {
-		if(this.needReflow) {
-			this.reflow();
-		}
-		if(forSize) {
-			if(!this.isInline) {
-				h2d_Object.prototype.getBoundsRec.call(this,relativeTo,out,true);
-			}
-			if(this.calculatedWidth != 0) {
-				if(this.posChanged) {
-					this.calcAbsPos();
-					var _g = 0;
-					var _g1 = this.children;
-					while(_g < _g1.length) _g1[_g++].posChanged = true;
-					this.posChanged = false;
-				}
-				this.addBounds(relativeTo,out,0,0,this.calculatedWidth,this.calculatedHeight);
-			}
-		} else {
-			h2d_Object.prototype.getBoundsRec.call(this,relativeTo,out,forSize);
-		}
-	}
-	,setParentContainer: function(c) {
-		this.parentContainer = c;
-	}
-	,addChildAt: function(s,pos) {
-		if(this.background != null) {
-			++pos;
-		}
-		if(this.interactive != null) {
-			++pos;
-		}
-		if(this.scrollBar != null && pos == this.children.length) {
-			--pos;
-		}
-		var fp = this.getProperties(s);
-		h2d_Object.prototype.addChildAt.call(this,s,pos);
-		if(fp == null) {
-			fp = new h2d_FlowProperties(s);
-		} else {
-			HxOverrides.remove(this.properties,fp);
-		}
-		this.properties.splice(pos,0,fp);
-		this.set_needReflow(true);
-		s.setParentContainer(this);
-	}
-	,removeChild: function(s) {
-		var index = this.getChildIndex(s);
-		h2d_Object.prototype.removeChild.call(this,s);
-		if(index >= 0) {
-			this.set_needReflow(true);
-			this.properties.splice(index,1);
-			s.constraintSize(-1,-1);
-		}
-		if(s != null) {
-			if(s == this.background) {
-				this.set_backgroundTile(null);
-			}
-			if(s == this.interactive) {
-				this.set_enableInteractive(false);
-			}
-		}
-	}
-	,removeChildren: function() {
-		var k = 0;
-		while(this.children.length > k) {
-			var c = this.getChildAt(k);
-			if(c == this.background || c == this.interactive || c == this.debugGraphics || c == this.scrollBar) {
-				++k;
-			} else {
-				this.removeChild(c);
-			}
-		}
-	}
-	,sync: function(ctx) {
-		if(!this.isConstraint && (this.fillWidth || this.fillHeight)) {
-			var scene = ctx.scene;
-			if((this.fillWidth ? scene.width : -1) != this.constraintWidth || (this.fillHeight ? scene.height : -1) != this.constraintHeight) {
-				this.set_needReflow(true);
-			}
-		}
-		if(this.needReflow) {
-			this.reflow();
-		}
-		h2d_Object.prototype.sync.call(this,ctx);
-	}
-	,drawRec: function(ctx) {
-		if(this.overflow == h2d_FlowOverflow.Hidden || this.overflow == h2d_FlowOverflow.Scroll) {
-			if(this.posChanged) {
-				this.calcAbsPos();
-				var _g = 0;
-				var _g1 = this.children;
-				while(_g < _g1.length) _g1[_g++].posChanged = true;
-				this.posChanged = false;
-			}
-			h2d_Mask.maskWith(ctx,this,Math.ceil(this.calculatedWidth),Math.ceil(this.calculatedHeight),0,0);
-			h2d_Object.prototype.drawRec.call(this,ctx);
-			h2d_Mask.unmask(ctx);
-		} else {
-			h2d_Object.prototype.drawRec.call(this,ctx);
-		}
-	}
-	,set_maxWidth: function(w) {
-		if(this.maxWidth == w) {
-			return w;
-		}
-		this.maxWidth = w;
-		this.updateConstraint();
-		return w;
-	}
-	,updateConstraint: function() {
-		var oldW = this.realMaxWidth;
-		var oldH = this.realMaxHeight;
-		var tmp;
-		if(this.maxWidth == null) {
-			tmp = this.constraintWidth;
-		} else if(this.constraintWidth < 0) {
-			tmp = this.maxWidth;
-		} else {
-			var a = this.maxWidth;
-			var b = this.constraintWidth;
-			tmp = a > b ? b : a;
-		}
-		this.realMaxWidth = tmp;
-		var tmp;
-		if(this.maxHeight == null) {
-			tmp = this.constraintHeight;
-		} else if(this.constraintHeight < 0) {
-			tmp = this.maxHeight;
-		} else {
-			var a = this.maxHeight;
-			var b = this.constraintHeight;
-			tmp = a > b ? b : a;
-		}
-		this.realMaxHeight = tmp;
-		if(this.minWidth != null && this.realMaxWidth < this.minWidth && this.realMaxWidth >= 0) {
-			this.realMaxWidth = this.minWidth;
-		}
-		if(this.minHeight != null && this.realMaxHeight < this.minHeight && this.realMaxWidth >= 0) {
-			this.realMaxHeight = this.minHeight;
-		}
-		if(this.realMaxWidth != oldW || this.realMaxHeight != oldH) {
-			this.set_needReflow(true);
-		}
-		var oldW = this.realMinWidth;
-		var oldH = this.realMinHeight;
-		var tmp;
-		if(this.fillWidth) {
-			var a = Math.ceil(this.constraintWidth);
-			var b = this.minWidth != null ? this.minWidth : -1;
-			tmp = a < b ? b : a;
-		} else {
-			tmp = this.minWidth != null ? this.minWidth : -1;
-		}
-		this.realMinWidth = tmp;
-		var tmp;
-		if(this.fillHeight) {
-			var a = Math.ceil(this.constraintHeight);
-			var b = this.minHeight != null ? this.minHeight : -1;
-			tmp = a < b ? b : a;
-		} else {
-			tmp = this.minHeight != null ? this.minHeight : -1;
-		}
-		this.realMinHeight = tmp;
-		if(this.realMinWidth != oldW || this.realMinHeight != oldH) {
-			this.set_needReflow(true);
-		}
-	}
-	,set_minHeight: function(h) {
-		if(this.minHeight == h) {
-			return h;
-		}
-		this.set_needReflow(true);
-		this.minHeight = h;
-		this.updateConstraint();
-		return h;
-	}
-	,set_verticalSpacing: function(s) {
-		if(this.verticalSpacing == s) {
-			return s;
-		}
-		this.set_needReflow(true);
-		return this.verticalSpacing = s;
-	}
-	,set_enableInteractive: function(b) {
-		if(this.enableInteractive == b) {
-			return b;
-		}
-		if(b) {
-			if(this.interactive == null) {
-				var interactive = new h2d_Interactive(0,0);
-				this.addChildAt(interactive,0);
-				this.interactive = interactive;
-				interactive.set_cursor(hxd_Cursor.Default);
-				this.getProperties(interactive).set_isAbsolute(true);
-				if(!this.needReflow) {
-					interactive.width = this.calculatedWidth;
-					interactive.height = this.calculatedHeight;
-				}
-				interactive.onWheel = $bind(this,this.onMouseWheel);
-			}
-		} else if(this.interactive != null) {
-			var _this = this.interactive;
-			if(_this != null && _this.parent != null) {
-				_this.parent.removeChild(_this);
-			}
-			this.interactive = null;
-		}
-		return this.enableInteractive = b;
-	}
-	,onMouseWheel: function(e) {
-		if(this.overflow == h2d_FlowOverflow.Scroll) {
-			this.set_scrollPosY(this.scrollPosY + e.wheelDelta * this.scrollWheelSpeed);
-			e.propagate = false;
-		}
-	}
-	,set_backgroundTile: function(t) {
-		if(this.backgroundTile == t) {
-			return t;
-		}
-		if(t != null) {
-			if(this.background == null) {
-				var background = new h2d_ScaleGrid(t,this.borderLeft,this.borderTop,this.borderRight,this.borderBottom);
-				this.addChildAt(background,0);
-				this.getProperties(background).set_isAbsolute(true);
-				this.background = background;
-				if(!this.needReflow) {
-					background.set_width(Math.ceil(this.calculatedWidth));
-					background.set_height(Math.ceil(this.calculatedHeight));
-				}
-			}
-			this.background.tile = t;
-		} else if(this.background != null) {
-			var _this = this.background;
-			if(_this != null && _this.parent != null) {
-				_this.parent.removeChild(_this);
-			}
-			this.background = null;
-		}
-		return this.backgroundTile = t;
-	}
-	,reflow: function() {
-		this.onBeforeReflow();
-		this.syncPos();
-		if(!this.isConstraint && (this.fillWidth || this.fillHeight)) {
-			var scene = this.getScene();
-			var cw = this.fillWidth ? scene.width : -1;
-			var ch = this.fillHeight ? scene.height : -1;
-			if(cw != this.constraintWidth || ch != this.constraintHeight) {
-				this.constraintSize(cw,ch);
-				this.isConstraint = false;
-			}
-		}
-		var tmpBounds = this.tmpBounds;
-		if(tmpBounds == null) {
-			throw haxe_Exception.thrown("Recursive reflow");
-		}
-		this.tmpBounds = null;
-		var isConstraintWidth = this.realMaxWidth >= 0;
-		var isConstraintHeight = this.realMaxHeight >= 0;
-		var maxTotWidth = this.realMaxWidth < 0 ? 100000000 : Math.floor(this.realMaxWidth);
-		var maxTotHeight = this.realMaxHeight < 0 ? 100000000 : Math.floor(this.realMaxHeight);
-		var maxInWidth = maxTotWidth - (this.paddingLeft + this.paddingRight);
-		var maxInHeight = maxTotHeight - (this.paddingTop + this.paddingBottom);
-		if(this.debug) {
-			this.debugGraphics.clear();
-		}
-		var cw;
-		var ch;
-		switch(this.layout._hx_index) {
-		case 0:
-			var halign = this.horizontalAlign == null ? h2d_FlowAlign.Left : this.horizontalAlign;
-			var valign = this.verticalAlign == null ? h2d_FlowAlign.Bottom : this.verticalAlign;
-			var startX = this.paddingLeft;
-			var x = startX;
-			var y = this.paddingTop;
-			cw = startX;
-			var maxLineHeight = 0;
-			var minLineHeight = this.lineHeight != null ? this.lineHeight : this.realMinHeight >= 0 && !this.multiline ? this.realMinHeight - (this.paddingTop + this.paddingBottom) : 0;
-			var lastIndex = 0;
-			var autoWidth = maxInWidth;
-			var autoSum = 0.0;
-			var count = 0;
-			var _g = 0;
-			var _g1 = this.children.length;
-			while(_g < _g1) {
-				var i = _g++;
-				var p = this.properties[this.reverse ? this.children.length - i - 1 : i];
-				if(p.isAbsolute && p.horizontalAlign == null && p.verticalAlign == null) {
-					continue;
-				}
-				var c = this.children[this.reverse ? this.children.length - i - 1 : i];
-				if(!c.visible) {
-					continue;
-				}
-				if(count > 0 && !p.isAbsolute) {
-					autoWidth -= this.horizontalSpacing;
-				}
-				if(p.autoSize == null) {
-					var pw = p.paddingLeft + p.paddingRight;
-					var ph = p.paddingTop + p.paddingBottom;
-					if(!p.isAbsolute) {
-						c.constraintSize(isConstraintWidth && p.constraint ? ((p.autoSize != null ? Math.floor(autoWidth * p.autoSize / autoSum) : maxInWidth) - pw) / Math.abs(c.scaleX) : -1,isConstraintHeight && p.constraint ? ((p.autoSize != null ? (maxLineHeight < minLineHeight ? minLineHeight : maxLineHeight) * p.autoSize : maxInHeight) - ph) / Math.abs(c.scaleY) : -1);
-					}
-					tmpBounds.xMin = 1e20;
-					tmpBounds.yMin = 1e20;
-					tmpBounds.xMax = -1e20;
-					tmpBounds.yMax = -1e20;
-					c.getBoundsRec(this,tmpBounds,true);
-					if(tmpBounds.xMax <= tmpBounds.xMin || tmpBounds.yMax <= tmpBounds.yMin) {
-						if(0 < tmpBounds.xMin) {
-							tmpBounds.xMin = 0;
-						}
-						if(0 > tmpBounds.xMax) {
-							tmpBounds.xMax = 0;
-						}
-						if(0 < tmpBounds.yMin) {
-							tmpBounds.yMin = 0;
-						}
-						if(0 > tmpBounds.yMax) {
-							tmpBounds.yMax = 0;
-						}
-					} else {
-						var dx = -c.x;
-						var dy = -c.y;
-						tmpBounds.xMin += dx;
-						tmpBounds.xMax += dx;
-						tmpBounds.yMin += dy;
-						tmpBounds.yMax += dy;
-					}
-					p.calculatedWidth = Math.ceil(tmpBounds.xMax) + pw;
-					p.calculatedHeight = Math.ceil(tmpBounds.yMax) + ph;
-					if(p.minWidth != null && p.calculatedWidth < p.minWidth) {
-						p.calculatedWidth = p.minWidth;
-					}
-					if(p.minHeight != null && p.calculatedHeight < p.minHeight) {
-						p.calculatedHeight = p.minHeight;
-					}
-					if(!p.isAbsolute) {
-						if(p.calculatedHeight > maxLineHeight) {
-							maxLineHeight = p.calculatedHeight;
-						}
-						autoWidth -= p.calculatedWidth;
-					}
-				} else {
-					autoSum += p.autoSize;
-				}
-				++count;
-			}
-			var _g = 0;
-			var _g1 = this.children.length;
-			while(_g < _g1) {
-				var i = _g++;
-				var p = this.properties[this.reverse ? this.children.length - i - 1 : i];
-				if(p.isAbsolute && p.horizontalAlign == null && p.verticalAlign == null) {
-					continue;
-				}
-				var c = this.children[this.reverse ? this.children.length - i - 1 : i];
-				if(!c.visible) {
-					continue;
-				}
-				if(p.autoSize != null) {
-					var pw = p.paddingLeft + p.paddingRight;
-					var ph = p.paddingTop + p.paddingBottom;
-					if(!p.isAbsolute) {
-						c.constraintSize(isConstraintWidth && p.constraint ? ((p.autoSize != null ? Math.floor(autoWidth * p.autoSize / autoSum) : maxInWidth) - pw) / Math.abs(c.scaleX) : -1,isConstraintHeight && p.constraint ? ((p.autoSize != null ? (maxLineHeight < minLineHeight ? minLineHeight : maxLineHeight) * p.autoSize : maxInHeight) - ph) / Math.abs(c.scaleY) : -1);
-					}
-					tmpBounds.xMin = 1e20;
-					tmpBounds.yMin = 1e20;
-					tmpBounds.xMax = -1e20;
-					tmpBounds.yMax = -1e20;
-					c.getBoundsRec(this,tmpBounds,true);
-					if(tmpBounds.xMax <= tmpBounds.xMin || tmpBounds.yMax <= tmpBounds.yMin) {
-						if(0 < tmpBounds.xMin) {
-							tmpBounds.xMin = 0;
-						}
-						if(0 > tmpBounds.xMax) {
-							tmpBounds.xMax = 0;
-						}
-						if(0 < tmpBounds.yMin) {
-							tmpBounds.yMin = 0;
-						}
-						if(0 > tmpBounds.yMax) {
-							tmpBounds.yMax = 0;
-						}
-					} else {
-						var dx = -c.x;
-						var dy = -c.y;
-						tmpBounds.xMin += dx;
-						tmpBounds.xMax += dx;
-						tmpBounds.yMin += dy;
-						tmpBounds.yMax += dy;
-					}
-					p.calculatedWidth = Math.ceil(tmpBounds.xMax) + pw;
-					p.calculatedHeight = Math.ceil(tmpBounds.yMax) + ph;
-					if(p.minWidth != null && p.calculatedWidth < p.minWidth) {
-						p.calculatedWidth = p.minWidth;
-					}
-					if(p.minHeight != null && p.calculatedHeight < p.minHeight) {
-						p.calculatedHeight = p.minHeight;
-					}
-				}
-				if(!p.isAbsolute) {
-					var br = false;
-					if((this.multiline && x - startX + p.calculatedWidth > maxInWidth || p.lineBreak) && x - startX > 0) {
-						br = true;
-						if(maxLineHeight < minLineHeight) {
-							maxLineHeight = minLineHeight;
-						} else if(this.overflow != h2d_FlowOverflow.Expand && minLineHeight != 0) {
-							maxLineHeight = minLineHeight;
-						}
-						var absHeight = maxLineHeight > maxInHeight && this.overflow != h2d_FlowOverflow.Expand ? maxInHeight : maxLineHeight;
-						var _g2 = lastIndex;
-						while(_g2 < i) {
-							var i1 = _g2++;
-							var p1 = this.properties[this.reverse ? this.children.length - i1 - 1 : i1];
-							if(p1.isAbsolute && p1.verticalAlign == null) {
-								continue;
-							}
-							var c1 = this.children[this.reverse ? this.children.length - i1 - 1 : i1];
-							if(!c1.visible) {
-								continue;
-							}
-							var a = p1.verticalAlign != null ? p1.verticalAlign : valign;
-							c1.posChanged = true;
-							c1.y = y + p1.offsetY + p1.paddingTop;
-							var height = p1.isAbsolute ? absHeight : maxLineHeight;
-							if(a != null) {
-								switch(a._hx_index) {
-								case 3:
-									c1.posChanged = true;
-									c1.y += (height - p1.calculatedHeight) * 0.5 | 0;
-									break;
-								case 4:
-									c1.posChanged = true;
-									c1.y += height - (p1.calculatedHeight | 0);
-									break;
-								default:
-								}
-							}
-						}
-						lastIndex = i;
-						y += maxLineHeight + this.verticalSpacing;
-						maxLineHeight = 0;
-						x = startX;
-					}
-					p.isBreak = br;
-					x += p.calculatedWidth;
-					if(x > cw) {
-						cw = x;
-					}
-					x += this.horizontalSpacing;
-					if(p.calculatedHeight > maxLineHeight) {
-						maxLineHeight = p.calculatedHeight;
-					}
-				}
-			}
-			var maxIndex = this.children.length;
-			if(maxLineHeight < minLineHeight) {
-				maxLineHeight = minLineHeight;
-			} else if(this.overflow != h2d_FlowOverflow.Expand && minLineHeight != 0) {
-				maxLineHeight = minLineHeight;
-			}
-			var absHeight = maxLineHeight > maxInHeight && this.overflow != h2d_FlowOverflow.Expand ? maxInHeight : maxLineHeight;
-			var _g = lastIndex;
-			while(_g < maxIndex) {
-				var i = _g++;
-				var p = this.properties[this.reverse ? this.children.length - i - 1 : i];
-				if(p.isAbsolute && p.verticalAlign == null) {
-					continue;
-				}
-				var c = this.children[this.reverse ? this.children.length - i - 1 : i];
-				if(!c.visible) {
-					continue;
-				}
-				var a = p.verticalAlign != null ? p.verticalAlign : valign;
-				c.posChanged = true;
-				c.y = y + p.offsetY + p.paddingTop;
-				var height = p.isAbsolute ? absHeight : maxLineHeight;
-				if(a != null) {
-					switch(a._hx_index) {
-					case 3:
-						c.posChanged = true;
-						c.y += (height - p.calculatedHeight) * 0.5 | 0;
-						break;
-					case 4:
-						c.posChanged = true;
-						c.y += height - (p.calculatedHeight | 0);
-						break;
-					default:
-					}
-				}
-			}
-			cw += this.paddingRight;
-			ch = y + maxLineHeight + this.paddingBottom;
-			if(this.realMinWidth >= 0 && cw < this.realMinWidth) {
-				cw = this.realMinWidth;
-			}
-			var endX = cw - this.paddingRight;
-			var xmin = startX;
-			var xmax = endX;
-			var midSpace = 0;
-			var curAlign = null;
-			var _g = 0;
-			var _g1 = this.children.length;
-			while(_g < _g1) {
-				var i = _g++;
-				var p = this.properties[this.reverse ? this.children.length - i - 1 : i];
-				var c = this.children[this.reverse ? this.children.length - i - 1 : i];
-				if(!c.visible) {
-					continue;
-				}
-				if(p.isAbsolute) {
-					var _g2 = p.horizontalAlign;
-					if(_g2 != null) {
-						switch(_g2._hx_index) {
-						case 1:
-							c.posChanged = true;
-							c.x = startX + p.offsetX;
-							break;
-						case 2:
-							c.posChanged = true;
-							c.x = endX - p.calculatedWidth + p.offsetX;
-							break;
-						case 3:
-							c.posChanged = true;
-							c.x = startX + ((endX - startX - p.calculatedWidth) * 0.5 | 0) + p.offsetX + startX;
-							break;
-						default:
-						}
-					}
-					continue;
-				}
-				if(p.isBreak) {
-					xmin = startX;
-					xmax = endX;
-					midSpace = 0;
-				}
-				var px;
-				var align = p.horizontalAlign == null ? halign : p.horizontalAlign;
-				if(curAlign != align) {
-					curAlign = align;
-					midSpace = 0;
-				}
-				if(align == null) {
-					px = xmin;
-					xmin += p.calculatedWidth + this.horizontalSpacing;
-				} else {
-					switch(align._hx_index) {
-					case 2:
-						if(midSpace == 0) {
-							var p1 = p.calculatedWidth;
-							var size = 0;
-							var _g3 = i + 1;
-							var _g4 = this.children.length;
-							while(_g3 < _g4) {
-								var j = _g3++;
-								var p2 = this.properties[this.reverse ? this.children.length - j - 1 : j];
-								if(p2.isAbsolute || !this.children[this.reverse ? this.children.length - j - 1 : j].visible) {
-									continue;
-								}
-								if(p2.isBreak) {
-									break;
-								}
-								size += this.horizontalSpacing + p2.calculatedWidth;
-							}
-							midSpace = xmax - xmin - (p1 + size);
-							xmin += midSpace;
-						}
-						px = xmin;
-						xmin += p.calculatedWidth + this.horizontalSpacing;
-						break;
-					case 3:
-						if(midSpace == 0) {
-							var p3 = p.calculatedWidth;
-							var size1 = 0;
-							var _g5 = i + 1;
-							var _g6 = this.children.length;
-							while(_g5 < _g6) {
-								var j1 = _g5++;
-								var p4 = this.properties[this.reverse ? this.children.length - j1 - 1 : j1];
-								if(p4.isAbsolute || !this.children[this.reverse ? this.children.length - j1 - 1 : j1].visible) {
-									continue;
-								}
-								if(p4.isBreak) {
-									break;
-								}
-								size1 += this.horizontalSpacing + p4.calculatedWidth;
-							}
-							midSpace = (xmax - xmin - (p3 + size1)) * 0.5 | 0;
-							xmin += midSpace;
-						}
-						px = xmin;
-						xmin += p.calculatedWidth + this.horizontalSpacing;
-						break;
-					default:
-						px = xmin;
-						xmin += p.calculatedWidth + this.horizontalSpacing;
-					}
-				}
-				c.posChanged = true;
-				c.x = px + p.offsetX + p.paddingLeft;
-				if(p.isAbsolute) {
-					xmin = px;
-				}
-			}
-			break;
-		case 1:
-			var halign = this.horizontalAlign == null ? h2d_FlowAlign.Left : this.horizontalAlign;
-			var valign = this.verticalAlign == null ? h2d_FlowAlign.Top : this.verticalAlign;
-			var startY = this.paddingTop;
-			var y = startY;
-			var x = this.paddingLeft;
-			ch = startY;
-			var maxColWidth = 0;
-			var minColWidth = this.colWidth != null ? this.colWidth : this.realMinWidth >= 0 && !this.multiline ? this.realMinWidth - (this.paddingLeft + this.paddingRight) : 0;
-			var lastIndex = 0;
-			var autoHeight = maxInHeight;
-			var autoSum = 0.0;
-			var count = 0;
-			var _g = 0;
-			var _g1 = this.children.length;
-			while(_g < _g1) {
-				var i = _g++;
-				var p = this.properties[this.reverse ? this.children.length - i - 1 : i];
-				if(p.isAbsolute && p.horizontalAlign == null && p.verticalAlign == null) {
-					continue;
-				}
-				var c = this.children[this.reverse ? this.children.length - i - 1 : i];
-				if(!c.visible) {
-					continue;
-				}
-				if(count > 0 && !p.isAbsolute) {
-					autoHeight -= this.verticalSpacing;
-				}
-				if(p.autoSize == null) {
-					var pw = p.paddingLeft + p.paddingRight;
-					var ph = p.paddingTop + p.paddingBottom;
-					if(!p.isAbsolute) {
-						c.constraintSize(isConstraintWidth && p.constraint ? ((p.autoSize != null ? (maxColWidth < minColWidth ? minColWidth : maxColWidth) * p.autoSize : maxInWidth) - pw) / Math.abs(c.scaleX) : -1,isConstraintHeight && p.constraint ? ((p.autoSize != null ? Math.floor(autoHeight * p.autoSize / autoSum) : maxInHeight) - ph) / Math.abs(c.scaleY) : -1);
-					}
-					tmpBounds.xMin = 1e20;
-					tmpBounds.yMin = 1e20;
-					tmpBounds.xMax = -1e20;
-					tmpBounds.yMax = -1e20;
-					c.getBoundsRec(this,tmpBounds,true);
-					if(tmpBounds.xMax <= tmpBounds.xMin || tmpBounds.yMax <= tmpBounds.yMin) {
-						if(0 < tmpBounds.xMin) {
-							tmpBounds.xMin = 0;
-						}
-						if(0 > tmpBounds.xMax) {
-							tmpBounds.xMax = 0;
-						}
-						if(0 < tmpBounds.yMin) {
-							tmpBounds.yMin = 0;
-						}
-						if(0 > tmpBounds.yMax) {
-							tmpBounds.yMax = 0;
-						}
-					} else {
-						var dx = -c.x;
-						var dy = -c.y;
-						tmpBounds.xMin += dx;
-						tmpBounds.xMax += dx;
-						tmpBounds.yMin += dy;
-						tmpBounds.yMax += dy;
-					}
-					p.calculatedWidth = Math.ceil(tmpBounds.xMax) + pw;
-					p.calculatedHeight = Math.ceil(tmpBounds.yMax) + ph;
-					if(p.minWidth != null && p.calculatedWidth < p.minWidth) {
-						p.calculatedWidth = p.minWidth;
-					}
-					if(p.minHeight != null && p.calculatedHeight < p.minHeight) {
-						p.calculatedHeight = p.minHeight;
-					}
-					if(!p.isAbsolute) {
-						if(p.calculatedWidth > maxColWidth) {
-							maxColWidth = p.calculatedWidth;
-						}
-						autoHeight -= p.calculatedHeight;
-					}
-				} else {
-					autoSum += p.autoSize;
-				}
-				++count;
-			}
-			var _g = 0;
-			var _g1 = this.children.length;
-			while(_g < _g1) {
-				var i = _g++;
-				var p = this.properties[this.reverse ? this.children.length - i - 1 : i];
-				if(p.isAbsolute && p.horizontalAlign == null && p.verticalAlign == null) {
-					continue;
-				}
-				var c = this.children[this.reverse ? this.children.length - i - 1 : i];
-				if(!c.visible) {
-					continue;
-				}
-				if(p.autoSize != null) {
-					var pw = p.paddingLeft + p.paddingRight;
-					var ph = p.paddingTop + p.paddingBottom;
-					if(!p.isAbsolute) {
-						c.constraintSize(isConstraintWidth && p.constraint ? ((p.autoSize != null ? (maxColWidth < minColWidth ? minColWidth : maxColWidth) * p.autoSize : maxInWidth) - pw) / Math.abs(c.scaleX) : -1,isConstraintHeight && p.constraint ? ((p.autoSize != null ? Math.floor(autoHeight * p.autoSize / autoSum) : maxInHeight) - ph) / Math.abs(c.scaleY) : -1);
-					}
-					tmpBounds.xMin = 1e20;
-					tmpBounds.yMin = 1e20;
-					tmpBounds.xMax = -1e20;
-					tmpBounds.yMax = -1e20;
-					c.getBoundsRec(this,tmpBounds,true);
-					if(tmpBounds.xMax <= tmpBounds.xMin || tmpBounds.yMax <= tmpBounds.yMin) {
-						if(0 < tmpBounds.xMin) {
-							tmpBounds.xMin = 0;
-						}
-						if(0 > tmpBounds.xMax) {
-							tmpBounds.xMax = 0;
-						}
-						if(0 < tmpBounds.yMin) {
-							tmpBounds.yMin = 0;
-						}
-						if(0 > tmpBounds.yMax) {
-							tmpBounds.yMax = 0;
-						}
-					} else {
-						var dx = -c.x;
-						var dy = -c.y;
-						tmpBounds.xMin += dx;
-						tmpBounds.xMax += dx;
-						tmpBounds.yMin += dy;
-						tmpBounds.yMax += dy;
-					}
-					p.calculatedWidth = Math.ceil(tmpBounds.xMax) + pw;
-					p.calculatedHeight = Math.ceil(tmpBounds.yMax) + ph;
-					if(p.minWidth != null && p.calculatedWidth < p.minWidth) {
-						p.calculatedWidth = p.minWidth;
-					}
-					if(p.minHeight != null && p.calculatedHeight < p.minHeight) {
-						p.calculatedHeight = p.minHeight;
-					}
-				}
-				if(!p.isAbsolute) {
-					var br = false;
-					if((this.multiline && y - startY + p.calculatedHeight > maxInHeight || p.lineBreak) && y - startY > 0) {
-						br = true;
-						if(maxColWidth < minColWidth) {
-							maxColWidth = minColWidth;
-						} else if(this.overflow != h2d_FlowOverflow.Expand && minColWidth != 0) {
-							maxColWidth = minColWidth;
-						}
-						var absWidth = maxColWidth > maxInWidth && this.overflow != h2d_FlowOverflow.Expand ? maxInWidth : maxColWidth;
-						var _g2 = lastIndex;
-						while(_g2 < i) {
-							var i1 = _g2++;
-							var p1 = this.properties[this.reverse ? this.children.length - i1 - 1 : i1];
-							if(p1.isAbsolute && p1.horizontalAlign == null) {
-								continue;
-							}
-							var c1 = this.children[this.reverse ? this.children.length - i1 - 1 : i1];
-							if(!c1.visible) {
-								continue;
-							}
-							var a = p1.horizontalAlign != null ? p1.horizontalAlign : halign;
-							c1.posChanged = true;
-							c1.x = x + p1.offsetX + p1.paddingLeft;
-							var width = p1.isAbsolute ? absWidth : maxColWidth;
-							if(a != null) {
-								switch(a._hx_index) {
-								case 2:
-									c1.posChanged = true;
-									c1.x += width - p1.calculatedWidth;
-									break;
-								case 3:
-									c1.posChanged = true;
-									c1.x += (width - p1.calculatedWidth) * 0.5 | 0;
-									break;
-								default:
-								}
-							}
-						}
-						lastIndex = i;
-						x += maxColWidth + this.horizontalSpacing;
-						maxColWidth = 0;
-						y = startY;
-					}
-					p.isBreak = br;
-					c.posChanged = true;
-					c.y = y + p.offsetY + p.paddingTop;
-					y += p.calculatedHeight;
-					if(y > ch) {
-						ch = y;
-					}
-					y += this.verticalSpacing;
-					if(p.calculatedWidth > maxColWidth) {
-						maxColWidth = p.calculatedWidth;
-					}
-				}
-			}
-			var maxIndex = this.children.length;
-			if(maxColWidth < minColWidth) {
-				maxColWidth = minColWidth;
-			} else if(this.overflow != h2d_FlowOverflow.Expand && minColWidth != 0) {
-				maxColWidth = minColWidth;
-			}
-			var absWidth = maxColWidth > maxInWidth && this.overflow != h2d_FlowOverflow.Expand ? maxInWidth : maxColWidth;
-			var _g = lastIndex;
-			while(_g < maxIndex) {
-				var i = _g++;
-				var p = this.properties[this.reverse ? this.children.length - i - 1 : i];
-				if(p.isAbsolute && p.horizontalAlign == null) {
-					continue;
-				}
-				var c = this.children[this.reverse ? this.children.length - i - 1 : i];
-				if(!c.visible) {
-					continue;
-				}
-				var a = p.horizontalAlign != null ? p.horizontalAlign : halign;
-				c.posChanged = true;
-				c.x = x + p.offsetX + p.paddingLeft;
-				var width = p.isAbsolute ? absWidth : maxColWidth;
-				if(a != null) {
-					switch(a._hx_index) {
-					case 2:
-						c.posChanged = true;
-						c.x += width - p.calculatedWidth;
-						break;
-					case 3:
-						c.posChanged = true;
-						c.x += (width - p.calculatedWidth) * 0.5 | 0;
-						break;
-					default:
-					}
-				}
-			}
-			ch += this.paddingBottom;
-			cw = x + maxColWidth + this.paddingRight;
-			if(this.realMinHeight >= 0 && ch < this.realMinHeight) {
-				ch = this.realMinHeight;
-			}
-			var endY = ch - this.paddingBottom;
-			var ymin = startY;
-			var ymax = endY;
-			var midSpace = 0;
-			var curAlign = null;
-			var _g = 0;
-			var _g1 = this.children.length;
-			while(_g < _g1) {
-				var i = _g++;
-				var p = this.properties[this.reverse ? this.children.length - i - 1 : i];
-				var c = this.children[this.reverse ? this.children.length - i - 1 : i];
-				if(!c.visible) {
-					continue;
-				}
-				if(p.isAbsolute) {
-					var _g2 = p.verticalAlign;
-					if(_g2 != null) {
-						switch(_g2._hx_index) {
-						case 0:
-							c.posChanged = true;
-							c.y = startY + p.offsetY;
-							break;
-						case 3:
-							c.posChanged = true;
-							c.y = startY + ((endY - startY - p.calculatedHeight) * 0.5 | 0) + p.offsetY + startY;
-							break;
-						case 4:
-							c.posChanged = true;
-							c.y = endY - p.calculatedHeight + p.offsetY;
-							break;
-						default:
-						}
-					}
-					continue;
-				}
-				if(p.isBreak) {
-					ymin = startY;
-					ymax = endY;
-					midSpace = 0;
-				}
-				var py;
-				var align = p.verticalAlign == null ? valign : p.verticalAlign;
-				if(curAlign != align) {
-					curAlign = align;
-					midSpace = 0;
-				}
-				if(align == null) {
-					py = ymin;
-					ymin += p.calculatedHeight + this.verticalSpacing;
-				} else {
-					switch(align._hx_index) {
-					case 3:
-						if(midSpace == 0) {
-							var p1 = p.calculatedHeight;
-							var size = 0;
-							var _g3 = i + 1;
-							var _g4 = this.children.length;
-							while(_g3 < _g4) {
-								var j = _g3++;
-								var p2 = this.properties[this.reverse ? this.children.length - j - 1 : j];
-								if(p2.isAbsolute || !this.children[this.reverse ? this.children.length - j - 1 : j].visible) {
-									continue;
-								}
-								if(p2.isBreak) {
-									break;
-								}
-								size += this.verticalSpacing + p2.calculatedHeight;
-							}
-							midSpace = (ymax - ymin - (p1 + size)) * 0.5 | 0;
-							ymin += midSpace;
-						}
-						py = ymin;
-						ymin += p.calculatedHeight + this.verticalSpacing;
-						break;
-					case 4:
-						if(midSpace == 0) {
-							var p3 = p.calculatedHeight;
-							var size1 = 0;
-							var _g5 = i + 1;
-							var _g6 = this.children.length;
-							while(_g5 < _g6) {
-								var j1 = _g5++;
-								var p4 = this.properties[this.reverse ? this.children.length - j1 - 1 : j1];
-								if(p4.isAbsolute || !this.children[this.reverse ? this.children.length - j1 - 1 : j1].visible) {
-									continue;
-								}
-								if(p4.isBreak) {
-									break;
-								}
-								size1 += this.verticalSpacing + p4.calculatedHeight;
-							}
-							midSpace = ymax - ymin - (p3 + size1);
-							ymin += midSpace;
-						}
-						py = ymin;
-						ymin += p.calculatedHeight + this.verticalSpacing;
-						break;
-					default:
-						py = ymin;
-						ymin += p.calculatedHeight + this.verticalSpacing;
-					}
-				}
-				c.posChanged = true;
-				c.y = py + p.offsetY + p.paddingTop;
-			}
-			break;
-		case 2:
-			var halign = this.horizontalAlign == null ? h2d_FlowAlign.Left : this.horizontalAlign;
-			var valign = this.verticalAlign == null ? h2d_FlowAlign.Top : this.verticalAlign;
-			var maxChildW = 0;
-			var maxChildH = 0;
-			var _g = 0;
-			var _g1 = this.children.length;
-			while(_g < _g1) {
-				var i = _g++;
-				var c = this.children[this.reverse ? this.children.length - i - 1 : i];
-				if(!c.visible) {
-					continue;
-				}
-				var p = this.properties[this.reverse ? this.children.length - i - 1 : i];
-				var isAbs = p.isAbsolute;
-				if(isAbs && p.verticalAlign == null && p.horizontalAlign == null) {
-					continue;
-				}
-				var pw = p.paddingLeft + p.paddingRight;
-				var ph = p.paddingTop + p.paddingBottom;
-				if(!isAbs) {
-					c.constraintSize(isConstraintWidth && p.constraint ? (maxInWidth - pw) / Math.abs(c.scaleX) : -1,isConstraintHeight && p.constraint ? (maxInHeight - ph) / Math.abs(c.scaleY) : -1);
-				}
-				tmpBounds.xMin = 1e20;
-				tmpBounds.yMin = 1e20;
-				tmpBounds.xMax = -1e20;
-				tmpBounds.yMax = -1e20;
-				c.getBoundsRec(this,tmpBounds,true);
-				if(tmpBounds.xMax <= tmpBounds.xMin || tmpBounds.yMax <= tmpBounds.yMin) {
-					if(0 < tmpBounds.xMin) {
-						tmpBounds.xMin = 0;
-					}
-					if(0 > tmpBounds.xMax) {
-						tmpBounds.xMax = 0;
-					}
-					if(0 < tmpBounds.yMin) {
-						tmpBounds.yMin = 0;
-					}
-					if(0 > tmpBounds.yMax) {
-						tmpBounds.yMax = 0;
-					}
-				} else {
-					var dx = -c.x;
-					var dy = -c.y;
-					tmpBounds.xMin += dx;
-					tmpBounds.xMax += dx;
-					tmpBounds.yMin += dy;
-					tmpBounds.yMax += dy;
-				}
-				p.calculatedWidth = Math.ceil(tmpBounds.xMax) + pw;
-				p.calculatedHeight = Math.ceil(tmpBounds.yMax) + ph;
-				if(p.minWidth != null && p.calculatedWidth < p.minWidth) {
-					p.calculatedWidth = p.minWidth;
-				}
-				if(p.minHeight != null && p.calculatedHeight < p.minHeight) {
-					p.calculatedHeight = p.minHeight;
-				}
-				if(isAbs) {
-					continue;
-				}
-				if(p.calculatedWidth > maxChildW) {
-					maxChildW = p.calculatedWidth;
-				}
-				if(p.calculatedHeight > maxChildH) {
-					maxChildH = p.calculatedHeight;
-				}
-			}
-			var xmin = this.paddingLeft;
-			var ymin = this.paddingTop;
-			var xmax;
-			if(this.realMaxWidth > 0 && this.overflow != h2d_FlowOverflow.Expand) {
-				xmax = Math.floor(this.realMaxWidth - this.paddingRight);
-			} else {
-				var a = xmin + maxChildW;
-				var b = this.realMinWidth - this.paddingRight;
-				xmax = a < b ? b : a;
-			}
-			var ymax;
-			if(this.realMaxWidth > 0 && this.overflow != h2d_FlowOverflow.Expand) {
-				ymax = Math.floor(this.realMaxHeight - this.paddingBottom);
-			} else {
-				var a = ymin + maxChildH;
-				var b = this.realMinHeight - this.paddingBottom;
-				ymax = a < b ? b : a;
-			}
-			cw = xmax + this.paddingRight;
-			ch = ymax + this.paddingBottom;
-			var _g = 0;
-			var _g1 = this.children.length;
-			while(_g < _g1) {
-				var i = _g++;
-				var c = this.children[this.reverse ? this.children.length - i - 1 : i];
-				if(!c.visible) {
-					continue;
-				}
-				var p = this.properties[this.reverse ? this.children.length - i - 1 : i];
-				var isAbs = p.isAbsolute;
-				if(isAbs && p.verticalAlign == null && p.horizontalAlign == null) {
-					continue;
-				}
-				var valign1 = p.verticalAlign == null ? valign : p.verticalAlign;
-				var halign1 = p.horizontalAlign == null ? halign : p.horizontalAlign;
-				var px;
-				if(halign1 == null) {
-					px = xmin;
-				} else {
-					switch(halign1._hx_index) {
-					case 2:
-						px = xmax - p.calculatedWidth;
-						break;
-					case 3:
-						px = xmin + ((xmax - xmin - p.calculatedWidth) * 0.5 | 0);
-						break;
-					default:
-						px = xmin;
-					}
-				}
-				var py;
-				if(valign1 == null) {
-					py = ymin;
-				} else {
-					switch(valign1._hx_index) {
-					case 3:
-						py = ymin + ((ymax - ymin - p.calculatedHeight) * 0.5 | 0);
-						break;
-					case 4:
-						py = ymax - p.calculatedHeight;
-						break;
-					default:
-						py = ymin;
-					}
-				}
-				if(!isAbs || p.horizontalAlign != null) {
-					c.posChanged = true;
-					c.x = px + p.offsetX + p.paddingLeft;
-				}
-				if(!isAbs || p.verticalAlign != null) {
-					c.posChanged = true;
-					c.y = py + p.offsetY + p.paddingTop;
-				}
-			}
-			break;
-		}
-		if(this.scrollPosY != 0) {
-			var i = 0;
-			var sy = this.scrollPosY | 0;
-			var _g = 0;
-			var _g1 = this.children;
-			while(_g < _g1.length) {
-				var c = _g1[_g];
-				++_g;
-				if(this.properties[i++].isAbsolute) {
-					continue;
-				}
-				c.posChanged = true;
-				c.y -= sy;
-			}
-		}
-		if(this.realMinWidth >= 0 && cw < this.realMinWidth) {
-			cw = this.realMinWidth;
-		}
-		if(this.realMinHeight >= 0 && ch < this.realMinHeight) {
-			ch = this.realMinHeight;
-		}
-		this.contentWidth = cw;
-		this.contentHeight = ch;
-		if(this.overflow != h2d_FlowOverflow.Expand) {
-			if(isConstraintWidth && cw > maxTotWidth) {
-				cw = maxTotWidth;
-			}
-			if(isConstraintHeight && ch > maxTotHeight) {
-				ch = maxTotHeight;
-			}
-		}
-		if(this.interactive != null) {
-			this.interactive.width = cw;
-			this.interactive.height = ch;
-		}
-		if(this.background != null) {
-			this.background.set_width(Math.ceil(cw));
-			this.background.set_height(Math.ceil(ch));
-		}
-		this.calculatedWidth = cw;
-		this.calculatedHeight = ch;
-		if(this.scrollBar != null) {
-			if(this.contentHeight <= this.calculatedHeight) {
-				this.scrollBar.set_visible(false);
-			} else {
-				this.scrollBar.set_visible(true);
-				this.scrollBar.set_minHeight(Math.ceil(this.calculatedHeight));
-				var b = this.calculatedHeight * (1 - (this.contentHeight - this.calculatedHeight) / this.contentHeight) | 0;
-				this.scrollBarCursor.set_minHeight(1 < b ? b : 1);
-				this.updateScrollCursor();
-			}
-		}
-		this.set_needReflow(false);
-		if(this.overflow == h2d_FlowOverflow.Scroll || this.overflow == h2d_FlowOverflow.Hidden) {
-			this.posChanged = true;
-		}
-		if(this.debug) {
-			if(this.debugGraphics != this.children[this.children.length - 1]) {
-				this.addChild(this.debugGraphics);
-				this.set_needReflow(false);
-			}
-			if(this.paddingLeft != 0 || this.paddingRight != 0 || this.paddingTop != 0 || this.paddingBottom != 0) {
-				this.debugGraphics.lineStyle(1,65280);
-				this.debugGraphics.drawRect(this.paddingLeft,this.paddingTop,this.get_innerWidth(),this.get_innerHeight());
-			}
-			this.debugGraphics.lineStyle(1,33023);
-			var _g = 0;
-			var _g1 = this.children.length;
-			while(_g < _g1) {
-				var i = _g++;
-				var p = this.properties[this.reverse ? this.children.length - i - 1 : i];
-				var c = this.children[this.reverse ? this.children.length - i - 1 : i];
-				if(p.isAbsolute || !c.visible) {
-					continue;
-				}
-				this.debugGraphics.drawRect(c.x - p.offsetX - p.paddingLeft,c.y - p.offsetY - p.paddingTop,p.calculatedWidth,p.calculatedHeight);
-			}
-			this.debugGraphics.lineStyle(1,16711680);
-			this.debugGraphics.drawRect(0,0,cw,ch);
-		}
-		this.tmpBounds = tmpBounds;
-		this.onAfterReflow();
-	}
-	,onBeforeReflow: function() {
-	}
-	,onAfterReflow: function() {
-	}
-	,__class__: h2d_Flow
-	,__properties__: $extend(h2d_Object.prototype.__properties__,{set_scrollPosY:"set_scrollPosY",set_fillHeight:"set_fillHeight",set_fillWidth:"set_fillWidth",set_layout:"set_layout",get_outerHeight:"get_outerHeight",get_outerWidth:"get_outerWidth",get_innerHeight:"get_innerHeight",get_innerWidth:"get_innerWidth",set_backgroundTile:"set_backgroundTile",set_enableInteractive:"set_enableInteractive",set_verticalSpacing:"set_verticalSpacing",set_paddingBottom:"set_paddingBottom",set_paddingTop:"set_paddingTop",set_paddingRight:"set_paddingRight",set_paddingLeft:"set_paddingLeft",set_maxWidth:"set_maxWidth",set_minHeight:"set_minHeight",set_verticalAlign:"set_verticalAlign",set_horizontalAlign:"set_horizontalAlign",set_needReflow:"set_needReflow"})
-});
 var h2d_Kerning = function(c,o) {
 	this.prevChar = c;
 	this.offset = o;
@@ -9945,77 +12329,6 @@ h2d_Graphics.prototype = $extend(h2d_Drawable.prototype,{
 		this.tmpPoints[4].y += 0.01;
 		this.flush();
 	}
-	,drawRoundedRect: function(x,y,w,h,radius,nsegments) {
-		if(nsegments == null) {
-			nsegments = 0;
-		}
-		if(radius <= 0) {
-			this.drawRect(x,y,w,h);
-			return;
-		}
-		x += radius;
-		y += radius;
-		w -= radius * 2;
-		h -= radius * 2;
-		this.flush();
-		if(nsegments == 0) {
-			var f = radius * 1.57079632679489656 / 4;
-			nsegments = Math.ceil(f < 0 ? -f : f);
-		}
-		if(nsegments < 3) {
-			nsegments = 3;
-		}
-		var angle = 1.57079632679489656 / (nsegments - 1);
-		var y1 = y - radius;
-		this.addVertex(x,y1,this.curR,this.curG,this.curB,this.curA,x * this.ma + y1 * this.mc + this.mx,x * this.mb + y1 * this.md + this.my);
-		var x1 = x + w;
-		var y1 = y - radius;
-		this.addVertex(x1,y1,this.curR,this.curG,this.curB,this.curA,x1 * this.ma + y1 * this.mc + this.mx,x1 * this.mb + y1 * this.md + this.my);
-		var x1 = x + w;
-		var _g = 0;
-		var _g1 = nsegments;
-		while(_g < _g1) {
-			var a = _g++ * angle + 4.71238898038469;
-			var x2 = x1 + Math.cos(a) * radius;
-			var y1 = y + Math.sin(a) * radius;
-			this.addVertex(x2,y1,this.curR,this.curG,this.curB,this.curA,x2 * this.ma + y1 * this.mc + this.mx,x2 * this.mb + y1 * this.md + this.my);
-		}
-		var x1 = x + w + radius;
-		var y1 = y + h;
-		this.addVertex(x1,y1,this.curR,this.curG,this.curB,this.curA,x1 * this.ma + y1 * this.mc + this.mx,x1 * this.mb + y1 * this.md + this.my);
-		var x1 = x + w;
-		var y1 = y + h;
-		var _g = 0;
-		var _g1 = nsegments;
-		while(_g < _g1) {
-			var a = _g++ * angle;
-			var x2 = x1 + Math.cos(a) * radius;
-			var y2 = y1 + Math.sin(a) * radius;
-			this.addVertex(x2,y2,this.curR,this.curG,this.curB,this.curA,x2 * this.ma + y2 * this.mc + this.mx,x2 * this.mb + y2 * this.md + this.my);
-		}
-		var y1 = y + h + radius;
-		this.addVertex(x,y1,this.curR,this.curG,this.curB,this.curA,x * this.ma + y1 * this.mc + this.mx,x * this.mb + y1 * this.md + this.my);
-		var y1 = y + h;
-		var _g = 0;
-		var _g1 = nsegments;
-		while(_g < _g1) {
-			var a = _g++ * angle + 1.57079632679489656;
-			var x1 = x + Math.cos(a) * radius;
-			var y2 = y1 + Math.sin(a) * radius;
-			this.addVertex(x1,y2,this.curR,this.curG,this.curB,this.curA,x1 * this.ma + y2 * this.mc + this.mx,x1 * this.mb + y2 * this.md + this.my);
-		}
-		var x1 = x - radius;
-		this.addVertex(x1,y,this.curR,this.curG,this.curB,this.curA,x1 * this.ma + y * this.mc + this.mx,x1 * this.mb + y * this.md + this.my);
-		var _g = 0;
-		var _g1 = nsegments;
-		while(_g < _g1) {
-			var a = _g++ * angle + 3.14159265358979312;
-			var x1 = x + Math.cos(a) * radius;
-			var y1 = y + Math.sin(a) * radius;
-			this.addVertex(x1,y1,this.curR,this.curG,this.curB,this.curA,x1 * this.ma + y1 * this.mc + this.mx,x1 * this.mb + y1 * this.md + this.my);
-		}
-		this.flush();
-	}
 	,addVertex: function(x,y,r,g,b,a,u,v) {
 		if(v == null) {
 			v = 0.;
@@ -10337,13 +12650,6 @@ h2d_Interactive.prototype = $extend(h2d_Object.prototype,{
 		h2d_Object.prototype.calcAbsPos.call(this);
 		this.invDet = 1 / (this.matA * this.matD - this.matB * this.matC);
 	}
-	,set_cursor: function(c) {
-		this.cursor = c;
-		if(this.scene != null && this.scene.events != null) {
-			this.scene.events.updateCursor(this);
-		}
-		return c;
-	}
 	,onOver: function(e) {
 	}
 	,onOut: function(e) {
@@ -10373,96 +12679,6 @@ h2d_Interactive.prototype = $extend(h2d_Object.prototype,{
 	,onTextInput: function(e) {
 	}
 	,__class__: h2d_Interactive
-	,__properties__: $extend(h2d_Object.prototype.__properties__,{set_cursor:"set_cursor"})
-});
-var h2d_Mask = function(width,height,parent) {
-	this.scrollY = 0;
-	this.scrollX = 0;
-	h2d_Object.call(this,parent);
-	this.width = width;
-	this.height = height;
-};
-$hxClasses["h2d.Mask"] = h2d_Mask;
-h2d_Mask.__name__ = "h2d.Mask";
-h2d_Mask.maskWith = function(ctx,object,width,height,scrollX,scrollY) {
-	if(scrollY == null) {
-		scrollY = 0;
-	}
-	if(scrollX == null) {
-		scrollX = 0;
-	}
-	var x1 = object.absX + scrollX;
-	var y1 = object.absY + scrollY;
-	var x2 = width * object.matA + height * object.matC + x1;
-	var y2 = width * object.matB + height * object.matD + y1;
-	var tmp;
-	if(x1 > x2) {
-		tmp = x1;
-		x1 = x2;
-		x2 = tmp;
-	}
-	if(y1 > y2) {
-		tmp = y1;
-		y1 = y2;
-		y2 = tmp;
-	}
-	ctx.clipRenderZone(x1,y1,x2 - x1,y2 - y1);
-};
-h2d_Mask.unmask = function(ctx) {
-	ctx.popRenderZone();
-};
-h2d_Mask.__super__ = h2d_Object;
-h2d_Mask.prototype = $extend(h2d_Object.prototype,{
-	calcAbsPos: function() {
-		h2d_Object.prototype.calcAbsPos.call(this);
-		this.absX -= this.scrollX;
-		this.absY -= this.scrollY;
-	}
-	,getBoundsRec: function(relativeTo,out,forSize) {
-		var xMin = out.xMin;
-		var yMin = out.yMin;
-		var xMax = out.xMax;
-		var yMax = out.yMax;
-		out.xMin = 1e20;
-		out.yMin = 1e20;
-		out.xMax = -1e20;
-		out.yMax = -1e20;
-		if(this.posChanged) {
-			this.calcAbsPos();
-			var _g = 0;
-			var _g1 = this.children;
-			while(_g < _g1.length) _g1[_g++].posChanged = true;
-			this.posChanged = false;
-		}
-		this.addBounds(relativeTo,out,this.scrollX,this.scrollY,this.width,this.height);
-		var bxMin = out.xMin;
-		var byMin = out.yMin;
-		var bxMax = out.xMax;
-		var byMax = out.yMax;
-		out.xMin = xMin;
-		out.xMax = xMax;
-		out.yMin = yMin;
-		out.yMax = yMax;
-		h2d_Object.prototype.getBoundsRec.call(this,relativeTo,out,forSize);
-		if(out.xMin < bxMin) {
-			out.xMin = xMin > bxMin ? bxMin : xMin;
-		}
-		if(out.yMin < byMin) {
-			out.yMin = yMin > byMin ? byMin : yMin;
-		}
-		if(out.xMax > bxMax) {
-			out.xMax = xMax < bxMax ? bxMax : xMax;
-		}
-		if(out.yMax > byMax) {
-			out.yMax = yMax < byMax ? byMax : yMax;
-		}
-	}
-	,drawRec: function(ctx) {
-		h2d_Mask.maskWith(ctx,this,this.width,this.height,this.scrollX,this.scrollY);
-		h2d_Object.prototype.drawRec.call(this,ctx);
-		h2d_Mask.unmask(ctx);
-	}
-	,__class__: h2d_Mask
 });
 var h3d_impl_RenderContext = function() {
 	this.engine = h3d_Engine.CURRENT;
@@ -10955,23 +13171,6 @@ h2d_RenderContext.prototype = $extend(h3d_impl_RenderContext.prototype,{
 		b.xMax = x0 + this.renderW;
 		b.yMax = y0 + this.renderH;
 		return b;
-	}
-	,clipRenderZone: function(x,y,w,h) {
-		if(!this.hasRenderZone) {
-			this.pushRenderZone(x,y,w,h);
-			return;
-		}
-		x = Math.max(x,this.renderX);
-		y = Math.max(y,this.renderY);
-		var x2 = Math.min(x + w,this.renderX + this.renderW);
-		var y2 = Math.min(y + h,this.renderY + this.renderH);
-		if(x2 < x) {
-			x2 = x;
-		}
-		if(y2 < y) {
-			y2 = y;
-		}
-		this.pushRenderZone(x,y,x2 - x,y2 - y);
 	}
 	,setRZ: function(x,y,w,h) {
 		this.hasRenderZone = true;
@@ -11836,289 +14035,6 @@ h2d_TileGroup.prototype = $extend(h2d_Drawable.prototype,{
 	}
 	,__class__: h2d_TileGroup
 });
-var h2d_ScaleGrid = function(tile,borderL,borderT,borderR,borderB,parent) {
-	this.currentScaleY = 1.;
-	this.currentScaleX = 1.;
-	this.borderScale = 1.0;
-	h2d_TileGroup.call(this,tile,parent);
-	this.set_borderLeft(borderL);
-	this.set_borderRight(borderR != null ? borderR : borderL);
-	this.set_borderTop(borderT);
-	this.set_borderBottom(borderB != null ? borderB : borderT);
-	this.set_width(tile.width);
-	this.set_height(tile.height);
-};
-$hxClasses["h2d.ScaleGrid"] = h2d_ScaleGrid;
-h2d_ScaleGrid.__name__ = "h2d.ScaleGrid";
-h2d_ScaleGrid.__super__ = h2d_TileGroup;
-h2d_ScaleGrid.prototype = $extend(h2d_TileGroup.prototype,{
-	set_width: function(w) {
-		if(this.width == w) {
-			return w;
-		}
-		this.width = w;
-		this.clear();
-		return w;
-	}
-	,set_height: function(h) {
-		if(this.height == h) {
-			return h;
-		}
-		this.height = h;
-		this.clear();
-		return h;
-	}
-	,set_borderTop: function(top) {
-		if(this.borderTop == top) {
-			return top;
-		}
-		this.borderTop = top;
-		this.clear();
-		return top;
-	}
-	,set_borderBottom: function(bot) {
-		if(this.borderBottom == bot) {
-			return bot;
-		}
-		this.borderBottom = bot;
-		this.clear();
-		return bot;
-	}
-	,set_borderLeft: function(left) {
-		if(this.borderLeft == left) {
-			return left;
-		}
-		this.borderLeft = left;
-		this.clear();
-		return left;
-	}
-	,set_borderRight: function(right) {
-		if(this.borderRight == right) {
-			return right;
-		}
-		this.borderRight = right;
-		this.clear();
-		return right;
-	}
-	,getBoundsRec: function(relativeTo,out,forSize) {
-		this.checkUpdate();
-		h2d_TileGroup.prototype.getBoundsRec.call(this,relativeTo,out,forSize);
-	}
-	,checkUpdate: function() {
-		var needUpdate = false;
-		if(this.ignoreScale) {
-			this.syncPos();
-			var _this_a = 1;
-			var _this_b = 0;
-			var _this_c = 0;
-			var _this_d = 1;
-			_this_a = this.matA;
-			_this_b = this.matB;
-			_this_c = this.matC;
-			_this_d = this.matD;
-			var s_x = 0.;
-			var s_y = 0.;
-			s_x = Math.sqrt(_this_a * _this_a + _this_b * _this_b);
-			s_y = Math.sqrt(_this_c * _this_c + _this_d * _this_d);
-			if(_this_a * _this_d - _this_b * _this_c < 0) {
-				s_x *= -1;
-				s_y *= -1;
-			}
-			if(this.currentScaleX != s_x || this.currentScaleY != s_y) {
-				needUpdate = true;
-				this.currentScaleX = s_x;
-				this.currentScaleY = s_y;
-			}
-		}
-		if(this.content.isEmpty() || this.tile != this.contentTile) {
-			this.contentTile = this.tile;
-			needUpdate = true;
-		}
-		if(needUpdate) {
-			this.clear();
-			this.updateContent();
-		}
-	}
-	,updateContent: function() {
-		var bt = this.borderTop;
-		var bb = this.borderBottom;
-		var bl = this.borderLeft;
-		var br = this.borderRight;
-		var unscaledBl = bl * this.borderScale;
-		var unscaledBr = br * this.borderScale;
-		var unscaledBt = bt * this.borderScale;
-		var unscaledBb = bb * this.borderScale;
-		var invScaleX = 1.;
-		var invScaleY = 1.;
-		if(this.ignoreScale) {
-			this.syncPos();
-			var _this_a = 1;
-			var _this_b = 0;
-			var _this_c = 0;
-			var _this_d = 1;
-			_this_a = this.matA;
-			_this_b = this.matB;
-			_this_c = this.matC;
-			_this_d = this.matD;
-			var s_x = 0.;
-			var s_y = 0.;
-			s_x = Math.sqrt(_this_a * _this_a + _this_b * _this_b);
-			s_y = Math.sqrt(_this_c * _this_c + _this_d * _this_d);
-			if(_this_a * _this_d - _this_b * _this_c < 0) {
-				s_x *= -1;
-				s_y *= -1;
-			}
-			if(s_x == 0. || s_y == 0.) {
-				return;
-			}
-			invScaleX = 1. / s_x;
-			invScaleY = 1. / s_y;
-			unscaledBl *= invScaleX;
-			unscaledBr *= invScaleX;
-			unscaledBt *= invScaleY;
-			unscaledBb *= invScaleY;
-		}
-		var t = this.tile.sub(0,0,bl,bt);
-		t.scaleToSize(unscaledBl,unscaledBt);
-		var color = this.curColor;
-		this.content.add(0,0,color.x,color.y,color.z,color.w,t);
-		t = this.tile.sub(this.tile.width - br,0,br,bt);
-		t.scaleToSize(unscaledBr,unscaledBt);
-		var color = this.curColor;
-		this.content.add(this.width - unscaledBr,0,color.x,color.y,color.z,color.w,t);
-		t = this.tile.sub(0,this.tile.height - bb,bl,bb);
-		t.scaleToSize(unscaledBl,unscaledBb);
-		var color = this.curColor;
-		this.content.add(0,this.height - unscaledBb,color.x,color.y,color.z,color.w,t);
-		t = this.tile.sub(this.tile.width - br,this.tile.height - bb,br,bb);
-		t.scaleToSize(unscaledBr,unscaledBb);
-		var color = this.curColor;
-		this.content.add(this.width - unscaledBr,this.height - unscaledBb,color.x,color.y,color.z,color.w,t);
-		var innerTileWidth = this.tile.width - (br + bl);
-		var innerTileHeight = this.tile.height - (bb + bt);
-		var innerWidth = this.width - (unscaledBl + unscaledBr);
-		var innerHeight = this.height - (unscaledBt + unscaledBb);
-		if(!this.tileBorders) {
-			var t = this.tile.sub(bl,0,innerTileWidth,bt);
-			t.scaleToSize(innerWidth,unscaledBt);
-			var color = this.curColor;
-			this.content.add(unscaledBl,0,color.x,color.y,color.z,color.w,t);
-			var t = this.tile.sub(bl,this.tile.height - bb,innerTileWidth,bb);
-			t.scaleToSize(innerWidth,unscaledBb);
-			var color = this.curColor;
-			this.content.add(unscaledBl,innerHeight + unscaledBt,color.x,color.y,color.z,color.w,t);
-			var t = this.tile.sub(0,bt,bl,innerTileHeight);
-			t.scaleToSize(unscaledBl,innerHeight);
-			var color = this.curColor;
-			this.content.add(0,unscaledBt,color.x,color.y,color.z,color.w,t);
-			var t = this.tile.sub(this.tile.width - br,bt,br,innerTileHeight);
-			t.scaleToSize(unscaledBr,innerHeight);
-			var color = this.curColor;
-			this.content.add(innerWidth + unscaledBl,unscaledBt,color.x,color.y,color.z,color.w,t);
-		} else {
-			var unscaledInnerTileWidth = innerTileWidth * invScaleX;
-			var unscaledInnerTileHeight = innerTileHeight * invScaleY;
-			var rw = innerWidth / unscaledInnerTileWidth | 0;
-			var _g = 0;
-			while(_g < rw) {
-				var x = _g++;
-				var t = this.tile.sub(bl,0,innerTileWidth,bt);
-				t.scaleToSize(unscaledInnerTileWidth,unscaledBt);
-				var color = this.curColor;
-				this.content.add(unscaledBl + x * unscaledInnerTileWidth,0,color.x,color.y,color.z,color.w,t);
-				t = this.tile.sub(bl,this.tile.height - bb,innerTileWidth,bb);
-				t.scaleToSize(unscaledInnerTileWidth,unscaledBb);
-				var color1 = this.curColor;
-				this.content.add(unscaledBl + x * unscaledInnerTileWidth,this.height - unscaledBb,color1.x,color1.y,color1.z,color1.w,t);
-			}
-			var dx = innerWidth - rw * unscaledInnerTileWidth;
-			if(dx > 0) {
-				var t = this.tile.sub(bl,0,dx / invScaleX,bt);
-				t.scaleToSize(dx,unscaledBt);
-				var color = this.curColor;
-				this.content.add(unscaledBl + rw * unscaledInnerTileWidth,0,color.x,color.y,color.z,color.w,t);
-				t = this.tile.sub(bl,this.tile.height - bb,dx / invScaleX,bb);
-				t.scaleToSize(dx,unscaledBb);
-				var color = this.curColor;
-				this.content.add(unscaledBl + rw * unscaledInnerTileWidth,this.height - unscaledBb,color.x,color.y,color.z,color.w,t);
-			}
-			var rh = innerHeight / unscaledInnerTileHeight | 0;
-			var _g = 0;
-			while(_g < rh) {
-				var y = _g++;
-				var t = this.tile.sub(0,bt,bl,innerTileHeight);
-				t.scaleToSize(unscaledBl,unscaledInnerTileHeight);
-				var color = this.curColor;
-				this.content.add(0,unscaledBt + y * unscaledInnerTileHeight,color.x,color.y,color.z,color.w,t);
-				t = this.tile.sub(this.tile.width - br,bt,br,innerTileHeight);
-				t.scaleToSize(unscaledBr,unscaledInnerTileHeight);
-				var color1 = this.curColor;
-				this.content.add(this.width - unscaledBr,unscaledBt + y * unscaledInnerTileHeight,color1.x,color1.y,color1.z,color1.w,t);
-			}
-			var dy = innerHeight - rh * unscaledInnerTileHeight;
-			if(dy > 0) {
-				var t = this.tile.sub(0,bt,bl,dy / invScaleY);
-				t.scaleToSize(unscaledBl,dy);
-				var color = this.curColor;
-				this.content.add(0,bt + rh * unscaledInnerTileHeight,color.x,color.y,color.z,color.w,t);
-				t = this.tile.sub(this.tile.width - br,bt,br,dy / invScaleY);
-				t.scaleToSize(unscaledBr,dy);
-				var color = this.curColor;
-				this.content.add(this.width - unscaledBr,unscaledBt + rh * unscaledInnerTileHeight,color.x,color.y,color.z,color.w,t);
-			}
-		}
-		if(!this.tileCenter) {
-			var t = this.tile.sub(bl,bt,innerTileWidth,innerTileHeight);
-			t.scaleToSize(this.width - (unscaledBr + unscaledBl),this.height - (unscaledBt + unscaledBb));
-			var color = this.curColor;
-			this.content.add(unscaledBl,unscaledBt,color.x,color.y,color.z,color.w,t);
-		} else {
-			var unscaledInnerTileWidth = innerTileWidth * invScaleX;
-			var unscaledInnerTileHeight = innerTileHeight * invScaleY;
-			var rw = (this.width - (unscaledBr + unscaledBl)) / unscaledInnerTileWidth | 0;
-			var rh = innerHeight / unscaledInnerTileHeight | 0;
-			var _g = 0;
-			while(_g < rh) {
-				var y = _g++;
-				var _g1 = 0;
-				while(_g1 < rw) {
-					var t = this.tile.sub(bl,bt,unscaledInnerTileWidth,unscaledInnerTileHeight);
-					var color = this.curColor;
-					this.content.add(unscaledBl + _g1++ * unscaledInnerTileWidth,unscaledBt + y * unscaledInnerTileHeight,color.x,color.y,color.z,color.w,t);
-				}
-			}
-			var dx = innerWidth - rw * unscaledInnerTileWidth;
-			if(dx > 0) {
-				var _g = 0;
-				while(_g < rh) {
-					var t = this.tile.sub(bl,bt,dx,unscaledInnerTileHeight);
-					var color = this.curColor;
-					this.content.add(unscaledBl + rw * unscaledInnerTileWidth,unscaledBt + _g++ * unscaledInnerTileHeight,color.x,color.y,color.z,color.w,t);
-				}
-			}
-			var dy = innerHeight - rh * unscaledInnerTileHeight;
-			if(dy > 0) {
-				var _g = 0;
-				while(_g < rw) {
-					var t = this.tile.sub(bl,bt,unscaledInnerTileWidth,dy);
-					var color = this.curColor;
-					this.content.add(unscaledBl + _g++ * unscaledInnerTileWidth,unscaledBt + rh * unscaledInnerTileHeight,color.x,color.y,color.z,color.w,t);
-				}
-			}
-			if(dx > 0 && dy > 0) {
-				var t = this.tile.sub(bl,bt,dx,dy);
-				var color = this.curColor;
-				this.content.add(unscaledBl + rw * unscaledInnerTileWidth,unscaledBt + rh * unscaledInnerTileHeight,color.x,color.y,color.z,color.w,t);
-			}
-		}
-	}
-	,sync: function(ctx) {
-		this.checkUpdate();
-		h2d_TileGroup.prototype.sync.call(this,ctx);
-	}
-	,__class__: h2d_ScaleGrid
-	,__properties__: $extend(h2d_TileGroup.prototype.__properties__,{set_height:"set_height",set_width:"set_width",set_borderBottom:"set_borderBottom",set_borderTop:"set_borderTop",set_borderRight:"set_borderRight",set_borderLeft:"set_borderLeft"})
-});
 var h2d_ScaleModeAlign = $hxEnums["h2d.ScaleModeAlign"] = { __ename__:"h2d.ScaleModeAlign",__constructs__:null
 	,Left: {_hx_name:"Left",_hx_index:0,__enum__:"h2d.ScaleModeAlign",toString:$estr}
 	,Right: {_hx_name:"Right",_hx_index:1,__enum__:"h2d.ScaleModeAlign",toString:$estr}
@@ -12235,9 +14151,6 @@ h2d_TileLayerContent.prototype = $extend(h3d_prim_Primitive.prototype,{
 		this.xMax = -Infinity;
 		this.yMax = -Infinity;
 		this.state.clear();
-	}
-	,isEmpty: function() {
-		return this.triCount() == 0;
 	}
 	,triCount: function() {
 		if(this.buffer == null) {
@@ -30838,13 +32751,6 @@ hxd_Window.prototype = {
 		this.event(new hxd_Event(b ? hxd_EventKind.EFocus : hxd_EventKind.EFocusLost));
 		this.focused = b;
 	}
-	,get_displayMode: function() {
-		var doc = window.document;
-		if(doc.fullscreenElement != null) {
-			return hxd_DisplayMode.Borderless;
-		}
-		return hxd_DisplayMode.Windowed;
-	}
 	,set_displayMode: function(m) {
 		if(!js_Browser.get_supported()) {
 			return m;
@@ -30862,7 +32768,7 @@ hxd_Window.prototype = {
 		return m;
 	}
 	,__class__: hxd_Window
-	,__properties__: {set_displayMode:"set_displayMode",get_displayMode:"get_displayMode",set_mouseMode:"set_mouseMode",get_mouseY:"get_mouseY",get_mouseX:"get_mouseX",get_height:"get_height",get_width:"get_width"}
+	,__properties__: {set_displayMode:"set_displayMode",set_mouseMode:"set_mouseMode",get_mouseY:"get_mouseY",get_mouseX:"get_mouseX",get_height:"get_height",get_width:"get_width"}
 };
 var js_Browser = function() { };
 $hxClasses["js.Browser"] = js_Browser;
@@ -32464,9 +34370,6 @@ hxd_fs_FileEntry.prototype = {
 		if(this.readBytes(bytes,0,pos,len) < len) {
 			throw haxe_Exception.thrown(new haxe_io_Eof());
 		}
-	}
-	,getText: function() {
-		return this.getBytes().toString();
 	}
 	,open: function() {
 		return new hxd_fs_FileInput(this);
@@ -46996,10 +48899,8 @@ HerbalTeaApp.avgRenderTime = 0.0;
 HerbalTeaApp.cutout = { top : 0, bottom : 0, left : 0, right : 0};
 h2d_Object.tmpPoint = new h2d_col_Point();
 h2d_HtmlText.REG_SPACES = new EReg("[\r\n\t ]+","g");
-Colors.BLUE = -13291603;
-Colors.LIGHT_GREY = -10066330;
-TextButton.BUTTON_TEXT_COLOR_ENABLED = -1;
-TextButton.BUTTON_TEXT_COLOR_DISABLED = -5592406;
+PlayView.BOX2D_VELOCITY_ITERATIONS = 8;
+PlayView.BOX2D_POSITION_ITERATIONS = 3;
 Xml.Element = 0;
 Xml.PCData = 1;
 Xml.CData = 2;
@@ -47007,6 +48908,82 @@ Xml.Comment = 3;
 Xml.DocType = 4;
 Xml.ProcessingInstruction = 5;
 Xml.Document = 6;
+box2D_collision_B2Collision.s_incidentEdge = box2D_collision_B2Collision.makeClipPointVector();
+box2D_collision_B2Collision.s_clipPoints1 = box2D_collision_B2Collision.makeClipPointVector();
+box2D_collision_B2Collision.s_clipPoints2 = box2D_collision_B2Collision.makeClipPointVector();
+box2D_collision_B2Collision.s_edgeAO = [];
+box2D_collision_B2Collision.s_edgeBO = [];
+box2D_collision_B2Collision.s_localTangent = new box2D_common_math_B2Vec2();
+box2D_collision_B2Collision.s_localNormal = new box2D_common_math_B2Vec2();
+box2D_collision_B2Collision.s_planePoint = new box2D_common_math_B2Vec2();
+box2D_collision_B2Collision.s_normal = new box2D_common_math_B2Vec2();
+box2D_collision_B2Collision.s_tangent = new box2D_common_math_B2Vec2();
+box2D_collision_B2Collision.s_tangent2 = new box2D_common_math_B2Vec2();
+box2D_collision_B2Collision.s_v11 = new box2D_common_math_B2Vec2();
+box2D_collision_B2Collision.s_v12 = new box2D_common_math_B2Vec2();
+box2D_collision_B2Distance.b2_gjkCalls = 0;
+box2D_collision_B2Distance.b2_gjkIters = 0;
+box2D_collision_B2Distance.b2_gjkMaxIters = 0;
+box2D_collision_B2Distance.s_simplex = new box2D_collision_B2Simplex();
+box2D_collision_B2Distance.s_saveA = [];
+box2D_collision_B2Distance.s_saveB = [];
+box2D_collision_B2DynamicTreeNode.currentID = 0;
+box2D_collision_B2TimeOfImpact.b2_toiCalls = 0;
+box2D_collision_B2TimeOfImpact.b2_toiIters = 0;
+box2D_collision_B2TimeOfImpact.b2_toiMaxIters = 0;
+box2D_collision_B2TimeOfImpact.b2_toiRootIters = 0;
+box2D_collision_B2TimeOfImpact.b2_toiMaxRootIters = 0;
+box2D_collision_B2TimeOfImpact.s_cache = new box2D_collision_B2SimplexCache();
+box2D_collision_B2TimeOfImpact.s_distanceInput = new box2D_collision_B2DistanceInput();
+box2D_collision_B2TimeOfImpact.s_xfA = new box2D_common_math_B2Transform();
+box2D_collision_B2TimeOfImpact.s_xfB = new box2D_common_math_B2Transform();
+box2D_collision_B2TimeOfImpact.s_fcn = new box2D_collision_B2SeparationFunction();
+box2D_collision_B2TimeOfImpact.s_distanceOutput = new box2D_collision_B2DistanceOutput();
+box2D_common_B2Settings.b2_maxManifoldPoints = 2;
+box2D_common_B2Settings.b2_aabbExtension = 0.1;
+box2D_common_B2Settings.b2_aabbMultiplier = 2.0;
+box2D_common_B2Settings.b2_linearSlop = 0.005;
+box2D_common_B2Settings.b2_toiSlop = 0.04;
+box2D_common_B2Settings.b2_maxTOIContactsPerIsland = 32;
+box2D_common_B2Settings.b2_maxTOIJointsPerIsland = 32;
+box2D_common_B2Settings.b2_velocityThreshold = 1.0;
+box2D_common_B2Settings.b2_maxLinearCorrection = 0.2;
+box2D_common_B2Settings.b2_maxTranslation = 2.0;
+box2D_common_B2Settings.b2_maxTranslationSquared = 4.0;
+box2D_common_B2Settings.b2_maxRotation = 0.5 * Math.PI;
+box2D_common_B2Settings.b2_maxRotationSquared = 0.5 * Math.PI * (0.5 * Math.PI);
+box2D_common_B2Settings.b2_contactBaumgarte = 0.2;
+box2D_common_B2Settings.b2_timeToSleep = 0.5;
+box2D_common_B2Settings.b2_linearSleepTolerance = 0.01;
+box2D_common_B2Settings.b2_angularSleepTolerance = 0.0111111111111111115 * Math.PI;
+box2D_dynamics_B2Body.s_xf1 = new box2D_common_math_B2Transform();
+box2D_dynamics_B2Body.e_islandFlag = 1;
+box2D_dynamics_B2Body.e_awakeFlag = 2;
+box2D_dynamics_B2Body.e_allowSleepFlag = 4;
+box2D_dynamics_B2Body.e_bulletFlag = 8;
+box2D_dynamics_B2Body.e_fixedRotationFlag = 16;
+box2D_dynamics_B2Body.e_activeFlag = 32;
+box2D_dynamics_B2Body.b2_dynamicBody = 2;
+box2D_dynamics_B2ContactFilter.b2_defaultFilter = new box2D_dynamics_B2ContactFilter();
+box2D_dynamics_B2ContactListener.b2_defaultListener = new box2D_dynamics_B2ContactListener();
+box2D_dynamics_B2Island.s_impulse = new box2D_dynamics_B2ContactImpulse();
+box2D_dynamics_B2World.s_timestep2 = new box2D_dynamics_B2TimeStep();
+box2D_dynamics_B2World.s_backupA = new box2D_common_math_B2Sweep();
+box2D_dynamics_B2World.s_backupB = new box2D_common_math_B2Sweep();
+box2D_dynamics_B2World.s_timestep = new box2D_dynamics_B2TimeStep();
+box2D_dynamics_B2World.s_queue = [];
+box2D_dynamics_B2World.e_newFixture = 1;
+box2D_dynamics_B2World.e_locked = 2;
+box2D_dynamics_contacts_B2Contact.e_sensorFlag = 1;
+box2D_dynamics_contacts_B2Contact.e_continuousFlag = 2;
+box2D_dynamics_contacts_B2Contact.e_islandFlag = 4;
+box2D_dynamics_contacts_B2Contact.e_toiFlag = 8;
+box2D_dynamics_contacts_B2Contact.e_touchingFlag = 16;
+box2D_dynamics_contacts_B2Contact.e_enabledFlag = 32;
+box2D_dynamics_contacts_B2Contact.e_filterFlag = 64;
+box2D_dynamics_contacts_B2Contact.s_input = new box2D_collision_B2TOIInput();
+box2D_dynamics_contacts_B2ContactSolver.s_worldManifold = new box2D_collision_B2WorldManifold();
+box2D_dynamics_contacts_B2ContactSolver.s_psm = new box2D_dynamics_contacts_B2PositionSolverManifold();
 format_mp3_MPEG.Reserved = 1;
 format_mp3_MPEG.V1_Bitrates = [[format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad],[format_mp3_Bitrate.BR_Free,format_mp3_Bitrate.BR_32,format_mp3_Bitrate.BR_40,format_mp3_Bitrate.BR_48,format_mp3_Bitrate.BR_56,format_mp3_Bitrate.BR_64,format_mp3_Bitrate.BR_80,format_mp3_Bitrate.BR_96,format_mp3_Bitrate.BR_112,format_mp3_Bitrate.BR_128,format_mp3_Bitrate.BR_160,format_mp3_Bitrate.BR_192,format_mp3_Bitrate.BR_224,format_mp3_Bitrate.BR_256,format_mp3_Bitrate.BR_320,format_mp3_Bitrate.BR_Bad],[format_mp3_Bitrate.BR_Free,format_mp3_Bitrate.BR_32,format_mp3_Bitrate.BR_48,format_mp3_Bitrate.BR_56,format_mp3_Bitrate.BR_64,format_mp3_Bitrate.BR_80,format_mp3_Bitrate.BR_96,format_mp3_Bitrate.BR_112,format_mp3_Bitrate.BR_128,format_mp3_Bitrate.BR_160,format_mp3_Bitrate.BR_192,format_mp3_Bitrate.BR_224,format_mp3_Bitrate.BR_256,format_mp3_Bitrate.BR_320,format_mp3_Bitrate.BR_384,format_mp3_Bitrate.BR_Bad],[format_mp3_Bitrate.BR_Free,format_mp3_Bitrate.BR_32,format_mp3_Bitrate.BR_64,format_mp3_Bitrate.BR_96,format_mp3_Bitrate.BR_128,format_mp3_Bitrate.BR_160,format_mp3_Bitrate.BR_192,format_mp3_Bitrate.BR_224,format_mp3_Bitrate.BR_256,format_mp3_Bitrate.BR_288,format_mp3_Bitrate.BR_320,format_mp3_Bitrate.BR_352,format_mp3_Bitrate.BR_384,format_mp3_Bitrate.BR_416,format_mp3_Bitrate.BR_448,format_mp3_Bitrate.BR_Bad]];
 format_mp3_MPEG.V2_Bitrates = [[format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad,format_mp3_Bitrate.BR_Bad],[format_mp3_Bitrate.BR_Free,format_mp3_Bitrate.BR_8,format_mp3_Bitrate.BR_16,format_mp3_Bitrate.BR_24,format_mp3_Bitrate.BR_32,format_mp3_Bitrate.BR_40,format_mp3_Bitrate.BR_48,format_mp3_Bitrate.BR_56,format_mp3_Bitrate.BR_64,format_mp3_Bitrate.BR_80,format_mp3_Bitrate.BR_96,format_mp3_Bitrate.BR_112,format_mp3_Bitrate.BR_128,format_mp3_Bitrate.BR_144,format_mp3_Bitrate.BR_160,format_mp3_Bitrate.BR_Bad],[format_mp3_Bitrate.BR_Free,format_mp3_Bitrate.BR_8,format_mp3_Bitrate.BR_16,format_mp3_Bitrate.BR_24,format_mp3_Bitrate.BR_32,format_mp3_Bitrate.BR_40,format_mp3_Bitrate.BR_48,format_mp3_Bitrate.BR_56,format_mp3_Bitrate.BR_64,format_mp3_Bitrate.BR_80,format_mp3_Bitrate.BR_96,format_mp3_Bitrate.BR_112,format_mp3_Bitrate.BR_128,format_mp3_Bitrate.BR_144,format_mp3_Bitrate.BR_160,format_mp3_Bitrate.BR_Bad],[format_mp3_Bitrate.BR_Free,format_mp3_Bitrate.BR_32,format_mp3_Bitrate.BR_48,format_mp3_Bitrate.BR_56,format_mp3_Bitrate.BR_64,format_mp3_Bitrate.BR_80,format_mp3_Bitrate.BR_96,format_mp3_Bitrate.BR_112,format_mp3_Bitrate.BR_128,format_mp3_Bitrate.BR_144,format_mp3_Bitrate.BR_160,format_mp3_Bitrate.BR_176,format_mp3_Bitrate.BR_192,format_mp3_Bitrate.BR_224,format_mp3_Bitrate.BR_256,format_mp3_Bitrate.BR_Bad]];
